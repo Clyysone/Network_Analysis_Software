@@ -4,6 +4,8 @@
 #include <QDialog>
 #include <pcap.h>
 
+extern QString analyse_filename;//待分析的文件名
+
 namespace Ui {
 class pkt_proc;
 }

@@ -13,7 +13,7 @@ pkt_proc::~pkt_proc()
 {
     delete ui;
 }
-
+//返回按钮
 void pkt_proc::on_back_btn_clicked()
 {
     this->close();

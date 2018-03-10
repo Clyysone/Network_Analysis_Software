@@ -30,7 +30,7 @@
      <string>开始解析</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_2">
+   <widget class="QLabel" name="softname">
     <property name="geometry">
      <rect>
       <x>70</x>
@@ -43,7 +43,7 @@
      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:18pt; color:#fdfefe;&quot;&gt;基于Pcap文件&lt;/span&gt;&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:18pt; color:#fdfefe;&quot;&gt;网络数据包分析&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label">
+   <widget class="QLabel" name="backgroud">
     <property name="geometry">
      <rect>
       <x>0</x>
@@ -59,11 +59,11 @@
      <string/>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox">
+   <widget class="QComboBox" name="FileComboBox">
     <property name="geometry">
      <rect>
       <x>90</x>
-      <y>320</y>
+      <y>322</y>
       <width>151</width>
       <height>26</height>
      </rect>
@@ -71,16 +71,6 @@
     <item>
      <property name="text">
       <string/>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>test_1.pcap</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>test_2.pcap</string>
      </property>
     </item>
    </widget>
@@ -97,11 +87,25 @@
      <string>帮助</string>
     </property>
    </widget>
-   <zorder>label</zorder>
+   <widget class="QPushButton" name="refresh_btn">
+    <property name="geometry">
+     <rect>
+      <x>240</x>
+      <y>320</y>
+      <width>51</width>
+      <height>32</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>刷新</string>
+    </property>
+   </widget>
+   <zorder>backgroud</zorder>
    <zorder>start_btn</zorder>
-   <zorder>label_2</zorder>
-   <zorder>comboBox</zorder>
+   <zorder>softname</zorder>
+   <zorder>FileComboBox</zorder>
    <zorder>help_btn</zorder>
+   <zorder>refresh_btn</zorder>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">

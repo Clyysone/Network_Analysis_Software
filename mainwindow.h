@@ -4,6 +4,12 @@
 #include <QMainWindow>
 #include "pkt_proc.h"
 #include "help_info.h"
+#include <QFileInfoList>
+#include <QDir>
+#include <QMessageBox>
+#include <QFileInfo>
+
+extern QString analyse_filename;//待分析的文件名
 
 namespace Ui {
 class MainWindow;
@@ -22,10 +28,13 @@ private slots:
 
     void on_help_btn_clicked();
 
+    void on_refresh_btn_clicked();
+
 private:
     Ui::MainWindow *ui;
     pkt_proc *p;
     help_info *h;
+    QMessageBox *mybox;
 };
 
 #endif // MAINWINDOW_H
