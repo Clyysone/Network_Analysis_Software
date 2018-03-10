@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>网络数据包分析</string>
   </property>
   <widget class="QPushButton" name="back_btn">
    <property name="geometry">

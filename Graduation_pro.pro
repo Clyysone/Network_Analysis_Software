@@ -27,15 +27,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    pkt_proc.cpp
+    pkt_proc.cpp \
+    help_info.cpp
 
 HEADERS += \
         mainwindow.h \
-    pkt_proc.h
+    pkt_proc.h \
+    help_info.h
 
 FORMS += \
         mainwindow.ui \
-    pkt_proc.ui
+    pkt_proc.ui \
+    help_info.ui
 
 RESOURCES += \
     picture_rsc.qrc
