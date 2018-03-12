@@ -28,7 +28,8 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     pkt_proc.cpp \
-    help_info.cpp
+    help_info.cpp \
+    base_function.cpp
 
 HEADERS += \
         mainwindow.h \

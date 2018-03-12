@@ -1,12 +1,14 @@
 #ifndef BASE_TYPE_H
 #define BASE_TYPE_H
 
+#include <pcap.h>
+#include <qstring.h>
 #define PCAP_FILE_MAGIC_1 0Xd4
 #define PCAP_FILE_MAGIC_2 0Xc3
 #define PCAP_FILE_MAGIC_3 0Xb2
 #define PCAP_FILE_MAGIC_4 0Xa1
 
-const uint32_t MAX_MTU = 1500; //设置最大MTU为1500
+//const uint32_t MAX_MTU = 1500; //设置最大MTU为1500
 
 typedef char char8_t;
 typedef short int16_t;
@@ -97,4 +99,13 @@ typedef struct ICMPHeader{
     uint16_t Checksum; //校验和(2字节)
 }ICMPHeader_t;
 
+//pcap中一个包，包含指向下一个包的指针
+typedef struct pcappkt{
+    pcappkt *nextpkt;
+    pcapPktHeader_t pkthdr;
+    uchar8_t pktdate[];
+}pcappkt_t;
+
+void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, const uchar8_t *pkt_content);
+QString data_ucharTostr(uchar *source , int length);
 #endif // BASE_TYPE_H
