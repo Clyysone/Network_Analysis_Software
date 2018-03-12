@@ -33,7 +33,8 @@ SOURCES += \
 HEADERS += \
         mainwindow.h \
     pkt_proc.h \
-    help_info.h
+    help_info.h \
+    base_type.h
 
 FORMS += \
         mainwindow.ui \

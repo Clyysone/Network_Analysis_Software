@@ -3,6 +3,8 @@
 
 #include <QDialog>
 #include <pcap.h>
+#include <QMessageBox>
+#include "base_type.h"
 
 extern QString analyse_filename;//待分析的文件名
 
@@ -19,10 +21,13 @@ public:
     ~pkt_proc();
 
 private slots:
-    void on_back_btn_clicked();
+    void on_tabWidget_tabBarClicked(int index);
 
 private:
     Ui::pkt_proc *ui;
+    pcap_t *source_pcap_t;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    QMessageBox *mybox;
 };
 
 #endif // PKT_PROC_H
