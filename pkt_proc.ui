@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>987</width>
-    <height>632</height>
+    <height>631</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -72,16 +72,6 @@
       </rect>
      </property>
     </widget>
-    <widget class="QTextBrowser" name="dataTable">
-     <property name="geometry">
-      <rect>
-       <x>20</x>
-       <y>390</y>
-       <width>951</width>
-       <height>191</height>
-      </rect>
-     </property>
-    </widget>
     <widget class="QTextBrowser" name="headerTable">
      <property name="geometry">
       <rect>
@@ -116,6 +106,16 @@
      </property>
      <property name="orientation">
       <enum>Qt::Vertical</enum>
+     </property>
+    </widget>
+    <widget class="QTableView" name="contentTable">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>370</y>
+       <width>951</width>
+       <height>191</height>
+      </rect>
      </property>
     </widget>
    </widget>

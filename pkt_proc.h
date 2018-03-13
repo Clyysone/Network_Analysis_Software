@@ -14,7 +14,6 @@ extern QString analyse_filename;//待分析的文件名
 extern pcappkt_t *Header_allpkt;
 extern pcappkt_t *allpkt_temp;
 
-
 namespace Ui {
 class pkt_proc;
 }
@@ -38,6 +37,7 @@ private:
     pcap_t *source_pcap_t;
     char errbuf[PCAP_ERRBUF_SIZE];
     QMessageBox *mybox;
+    QStandardItemModel *content_model;
 };
 
 #endif // PKT_PROC_H

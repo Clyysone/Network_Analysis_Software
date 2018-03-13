@@ -103,9 +103,10 @@ typedef struct ICMPHeader{
 typedef struct pcappkt{
     pcappkt *nextpkt;
     pcapPktHeader_t pkthdr;
-    uchar8_t pktdate[];
+    uchar8_t pktdata[];
 }pcappkt_t;
 
 void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, const uchar8_t *pkt_content);
-QString data_ucharTostr(uchar *source , int length);
+char* data_ucharTostr(uchar *source , int length);
+char* _4No_pro(int num);
 #endif // BASE_TYPE_H
