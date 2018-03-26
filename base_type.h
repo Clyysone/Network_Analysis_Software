@@ -107,6 +107,7 @@ typedef struct pcappkt{
 }pcappkt_t;
 
 void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, const uchar8_t *pkt_content);
-char* data_ucharTostr(uchar *source , int length);
-char* _4No_pro(int num);
+void data_ucharToHexstr(uchar *source , uint32_t length , char *str);
+void data_HexstrTochar(char *source , int length , char *dest_str);
+void _4No_pro(int num , char *no_now);
 #endif // BASE_TYPE_H

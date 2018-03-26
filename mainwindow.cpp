@@ -63,7 +63,7 @@ void MainWindow::on_refresh_btn_clicked()
 {
     QDir dir;
     dir.setPath("/Users/yanliang/Desktop/Clyysone/inbox/Bs_Pro/Graduation_pro");//***有待修改***
-    QStringList filters;
+    QStringList filters; //只去读pcap后缀的文件
     filters << "*.pcap";
     dir.setNameFilters(filters);
     QFileInfoList list = dir.entryInfoList();

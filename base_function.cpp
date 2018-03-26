@@ -18,43 +18,54 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
     allpkt_temp->nextpkt = NULL;
 }
 
-char* data_ucharTostr(uchar8_t *source , int length)
+//将二进制字符串转换为十六进制字符串，长度变为两倍
+void data_ucharToHexstr(uchar8_t *source , uint32_t length , char *str)
 {
-    char str[4*length];
     uchar8_t byte[2];
-    for(int i=0; i<length; i++){
-        byte[0] = source[i]/16;
-        byte[1] = source[i]%16;
+    for(uint32_t i=0; i<length; i++){
+        byte[0] = source[i]/16; //字符高4位
+        byte[1] = source[i]%16; //字符低4位
         if(byte[0]>=0 && byte[0]<=9)
-            str[4*i] = '0' + byte[0];
+            str[2*i] = '0' + byte[0];
         else
-            str[4*i] = 'a' + byte[0] - 10;
+            str[2*i] = 'a' + byte[0] - 10;
         if(byte[1]>=0 && byte[1]<=9)
-            str[4*i+1] = '0' +byte[1];
+            str[2*i+1] = '0' + byte[1];
         else
-            str[4*i+1] = 'a' + byte[1] -10;
-        str[4*i+2] = ' ';
-        str[4*i+3] = ' ';
+            str[2*i+1] = 'a' + byte[1] -10;
     }
-    return str;
 }
-
-char* _4No_pro(int num)
+//将十六进制字符串转换为二进制字符串，长度变为二分之一
+void data_HexstrTochar(char *source , int length , char *dest_str)
 {
-    char zero_num[4];
+    char byte[2];
+    for(int i=0; i<length; i++){
+        if(source[2*i]>='0' && source[2*i]<= '9')
+            byte[0] = source[2*i] - '0';
+        else
+            byte[0] = source[2*i] - 'a' + 10;
+        if(source[2*i+1]>='0' && source[2*i+1]<= '9')
+            byte[1] = source[2*i+1] - '0';
+        else
+            byte[1] = source[2*i+1] - 'a' + 10;
+        dest_str[i] = byte[0]*16 + byte[1]; //高位左移4位加上低位
+    }
+}
+//4位的十六进制字节计数
+void _4No_pro(int num, char *no_now)
+{
     for(int i=0; i<4; i++){
-        zero_num[i] = '0';
+        no_now[i] = '0';
     }
     int temp[2];
     temp[0] = num/16;
     temp[1] = num%16;
     if(temp[1] < 10){
-        zero_num[2] = '0'+temp[1];
-        zero_num[1] = '0'+temp[0];
+        no_now[2] = '0'+temp[1];
+        no_now[1] = '0'+temp[0];
     }
     else{
-        zero_num[2] = 'a'+temp[1]-10;
-        zero_num[1] = '0'+temp[0];
+        no_now[2] = 'a'+temp[1]-10;
+        no_now[1] = '0'+temp[0];
     }
-    return zero_num;
 }
