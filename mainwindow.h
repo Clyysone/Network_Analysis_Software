@@ -2,12 +2,12 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QDir>
+#include <QFileInfo>
+#include <QFileInfoList>
+#include <QMessageBox>
 #include "pkt_proc.h"
 #include "help_info.h"
-#include <QFileInfoList>
-#include <QDir>
-#include <QMessageBox>
-#include <QFileInfo>
 
 extern QString analyse_filename;//待分析的文件名
 

@@ -20,6 +20,7 @@ pkt_proc::~pkt_proc()
 //进行一些初始化操作
 void pkt_proc::initWidget()
 {
+    time_sec = 0;
     //设置总览中的表格相关信息(表一)
     QStandardItemModel *allinfo_model = new QStandardItemModel();
     allinfo_model->setHorizontalHeaderItem(0,new QStandardItem(QObject::tr("时间")));
@@ -55,13 +56,131 @@ void pkt_proc::initWidget()
     Header_allpkt = allpkt_temp;
     pcap_loop(source_pcap_t,-1,pcap_callback_t,NULL);
     //显示到总览表
+    struct ether_header *ethernet;
+    struct IPHeader *ip;
+    struct ICMPHeader *icmp;
+    struct TCPHeader *tcp;
+    struct UDPHeader *udp;
+    struct arphdr *arp;
     pcappkt_t *p;
-    int i=0;
+    uchar8_t* temp_srcIP;
+    uchar8_t* temp_dstIP;
+    int line=0;
     p = Header_allpkt->nextpkt;
     while(p){
-        allinfo_model->setItem(i,4,new QStandardItem(QString::number(p->pkthdr.caplen)));
+        uchar8_t *pkt_char;
+        QString temp_str;
+        pkt_char = p->pktdata;
+        allinfo_model->setItem(line,4,new QStandardItem(QString::number(p->pkthdr.caplen)));
+        ethernet = (struct ether_header *)pkt_char;
+        switch(ntohs(ethernet->ether_type))
+        {
+            //IP MAC头中类型码 0x0800
+            case ETHERTYPE_IP:
+                ip = (struct IPHeader *)(pkt_char+ETH_HLEN);
+                switch(ip->Protocol)
+                {
+                    //ICMP IP头中类型码为 1
+                    case IPPROTO_ICMP:
+                        icmp = (struct ICMPHeader *)(pkt_char+ETH_HLEN+IP_HLEN);
+                        temp_str = "";
+                        temp_srcIP = (uchar8_t *)(&(ip->SrcIP));
+                        for(int i=0; i<4; i++){
+                            temp_str += QString::number(temp_srcIP[i]);
+                            if(i!=3)
+                                temp_str += ":";
+                        }
+                        allinfo_model->setItem(line,1,new QStandardItem(temp_str));
+                        temp_str = "";
+                        temp_dstIP= (uchar8_t *)(&(ip->DstIP));
+                        for(int i=0; i<4; i++){
+                            temp_str += QString::number(temp_dstIP[i]);
+                            if(i!=3)
+                                temp_str += ":";
+                        }
+                        allinfo_model->setItem(line,2,new QStandardItem(temp_str));
+                        allinfo_model->setItem(line,3,new QStandardItem("ICMP"));
+                        switch(icmp->ICMPType)
+                        {
+                            //请求类型 ICMP头中类型码为 8
+                            case ICMP_TYPE_REQUEST:
+                                break;
+                            //应答类型 ICMP头中类型码为 0
+                            case ICMP_TYPE_REPLY:
+                                break;
+                            //其他类型 目标不可达、超时、源抑制、时间戳请求等
+                            default:
+                                break;
+                        }
+                        break;
+                    //TCP IP头中类型码为 6
+                    case IPPROTO_TCP:
+                        tcp = (struct TCPHeader *)(pkt_char+ETH_HLEN+IP_HLEN);
+                        temp_str = "";
+                        temp_srcIP = (uchar8_t *)(&(ip->SrcIP));
+                        for(int i=0; i<4; i++){
+                            temp_str += QString::number(temp_srcIP[i]);
+                            if(i!=3)
+                                temp_str += ":";
+                        }
+                        allinfo_model->setItem(line,1,new QStandardItem(temp_str));
+                        temp_str = "";
+                        temp_dstIP= (uchar8_t *)(&(ip->DstIP));
+                        for(int i=0; i<4; i++){
+                            temp_str += QString::number(temp_dstIP[i]);
+                            if(i!=3)
+                                temp_str += ":";
+                        }
+                        allinfo_model->setItem(line,2,new QStandardItem(temp_str));
+                        allinfo_model->setItem(line,3,new QStandardItem("TCP"));
+                        //TCP报文段头
+                        break;
+                    //UDP IP头中类型码为 17
+                    case IPPROTO_UDP:
+                        udp = (struct UDPHeader *)(pkt_char+ETH_HLEN+IP_HLEN);
+                        temp_str = "";
+                        temp_srcIP = (uchar8_t *)(&(ip->SrcIP));
+                        for(int i=0; i<4; i++){
+                            temp_str += QString::number(temp_srcIP[i]);
+                            if(i!=3)
+                                temp_str += ":";
+                        }
+                        allinfo_model->setItem(line,1,new QStandardItem(temp_str));
+                        temp_str = "";
+                        temp_dstIP= (uchar8_t *)(&(ip->DstIP));
+                        for(int i=0; i<4; i++){
+                            temp_str += QString::number(temp_dstIP[i]);
+                            if(i!=3)
+                                temp_str += ":";
+                        }
+                        allinfo_model->setItem(line,2,new QStandardItem(temp_str));
+                        allinfo_model->setItem(line,3,new QStandardItem("UDP"));
+                        allinfo_model->setItem(line,5,new QStandardItem(QString::number(ntohs(udp->SrcPort))+" → "+
+                                                                        QString::number(ntohs(udp->DstPort))+"  Len="+QString::number(ntohs(udp->SegLen)-UDP_HLEN)));
+                    default:
+                        break;
+                }
+            //ARP MAC头中类型码 0x0806
+            case ETHERTYPE_ARP:
+                arp = (struct arphdr *)(pkt_char+ETH_HLEN);
+                switch(arp->ar_op)
+                {
+                    //ARP请求 值为1
+                    case ARP_REQUSET:
+                        break;
+                    //ARP应答 值为2
+                    case ARP_REPLY:
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            //其他类型RARP、VLAN等
+            default:
+                break;
+        }
         p = p->nextpkt;
-        i++;
+        line++;
     }
     //设置数据内容表中的相关信息(表2)
     content_model->setHorizontalHeaderItem(16,new QStandardItem(QObject::tr("ASCII码")));
@@ -96,6 +215,8 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     for(int i=0; i<row_cnt; i++){
         content_model->removeRow(i);
     }
+    //清除详细信息显示框
+    ui->headerTable->clear();
     //首先遍历得到对应的数据包结构体指针
     pcappkt_t *p = Header_allpkt->nextpkt;
     for(int i = 0; i < index.row(); i++){
@@ -166,5 +287,223 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
         *(temp_onerow_a+16) = 0;
         content_model->setItem(i,16,new QStandardItem(temp_onerow_a));
         content_model->item(i, 16)->setTextAlignment(Qt::AlignCenter);//居中显示
+    }
+
+    /*分析统计部分
+     * Ether
+     *  IP
+     *    ICMP
+     *    TCP
+     *      HTTP
+     *    UDP
+     *  ARP
+     */
+    struct ether_header *ethernet;
+    struct IPHeader *ip;
+    struct ICMPHeader *icmp;
+    struct TCPHeader *tcp;
+    struct UDPHeader *udp;
+    struct arphdr *arp;
+
+    uchar8_t* temp_srcIP;
+    uchar8_t* temp_dstIP;
+    //PCAP包头
+    ui->headerTable->insertPlainText("► pcap数据包头：");
+    ui->headerTable->insertPlainText("\n        ◇ 抓去数据包长度：");
+    ui->headerTable->insertPlainText(QString::number(p->pkthdr.caplen));
+    ui->headerTable->insertPlainText("字节");
+    ui->headerTable->insertPlainText("\n        ◇ 数据包实际长度：");
+    ui->headerTable->insertPlainText(QString::number(p->pkthdr.len));
+    ui->headerTable->insertPlainText("字节");
+    ui->headerTable->insertPlainText("\n        ◇ 时间：");
+    time_sec = p->pkthdr.ts.ts_sec;
+    ui->headerTable->insertPlainText(QString(QLatin1String(ctime((const time_t *)&(time_sec)))));
+    ethernet = (struct ether_header *)pkt_char;
+    switch(ntohs(ethernet->ether_type))
+    {
+        //IP MAC头中类型码 0x0800
+        case ETHERTYPE_IP:
+            //以太网帧头
+            ui->headerTable->insertPlainText("► 以太网帧头（Ethernet）");
+            ui->headerTable->insertPlainText("\n        ◇ 目的MAC地址：");
+            for(int i=0; i<6; i++){
+                ui->headerTable->insertPlainText(charToHexQStr(ethernet->ether_dhost[i]));
+                if(i!=5)
+                    ui->headerTable->insertPlainText(":");
+            }
+            ui->headerTable->insertPlainText("\n        ◇ 源MAC地址：");
+            for(int i=0; i<6; i++){
+                ui->headerTable->insertPlainText(charToHexQStr(ethernet->ether_shost[i]));
+                if(i!=5)
+                    ui->headerTable->insertPlainText(":");
+            }
+            ui->headerTable->insertPlainText("\n        ◇ 协议类型：IP （0x0800）");
+            ip = (struct IPHeader *)(pkt_char+ETH_HLEN);
+            switch(ip->Protocol)
+            {
+                //ICMP IP头中类型码为 1
+                case IPPROTO_ICMP:
+                    //IP数据报头
+                    ui->headerTable->insertPlainText("\n► IP数据报头（Datagram）");
+                    ui->headerTable->insertPlainText("\n        ◇ 版本信息：IPv");
+                    ui->headerTable->insertPlainText(QString::number(ip->Ver_Hlen/16));
+                    ui->headerTable->insertPlainText("\n        ◇ 头长度：");
+                    ui->headerTable->insertPlainText(QString::number((ip->Ver_Hlen%16)*4)+"字节");
+                    ui->headerTable->insertPlainText("\n        ◇ 服务类型：");
+                    ui->headerTable->insertPlainText("0x"+charToHexQStr(ip->TOS));
+                    ui->headerTable->insertPlainText("\n        ◇ 数据报长度：");
+                    ui->headerTable->insertPlainText(QString::number(ntohs(ip->TotalLen)));
+                    ui->headerTable->insertPlainText("\n        ◇ 数据包标识：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->ID)));
+                    ui->headerTable->insertPlainText("\n        ◇ 分片信息：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->Flag_Segment)));
+                    ui->headerTable->insertPlainText("\n        ◇ 存活时间：");
+                    ui->headerTable->insertPlainText(QString::number(ip->TTL));
+                    ui->headerTable->insertPlainText("\n        ◇ 协议类型：ICMP（1）");
+                    ui->headerTable->insertPlainText("\n        ◇ 首部校验和：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->Checksum)));
+                    ui->headerTable->insertPlainText("\n        ◇ 源IP地址：");
+                    temp_srcIP = (uchar8_t *)(&(ip->SrcIP));
+                    for(int i=0; i<4; i++){
+                        ui->headerTable->insertPlainText(QString::number(temp_srcIP[i]));
+                        if(i!=3)
+                            ui->headerTable->insertPlainText(":");
+                    }
+                    ui->headerTable->insertPlainText("\n        ◇ 目的IP地址：");
+                    temp_dstIP = (uchar8_t *)(&(ip->DstIP));
+                    for(int i=0; i<4; i++){
+                        ui->headerTable->insertPlainText(QString::number(temp_dstIP[i]));
+                        if(i!=3)
+                            ui->headerTable->insertPlainText(":");
+                    }
+                    icmp = (struct ICMPHeader *)(pkt_char+ETH_HLEN+IP_HLEN);
+                    switch(icmp->ICMPType)
+                    {
+                        //请求类型 ICMP头中类型码为 8
+                        case ICMP_TYPE_REQUEST:
+                            break;
+                        //应答类型 ICMP头中类型码为 0
+                        case ICMP_TYPE_REPLY:
+                            break;
+                        //其他类型 目标不可达、超时、源抑制、时间戳请求等
+                        default:
+                            break;
+                    }
+                    break;
+                //TCP IP头中类型码为 6
+                case IPPROTO_TCP:
+                    //IP数据报头
+                    ui->headerTable->insertPlainText("\n► IP数据报头（Datagram）");
+                    ui->headerTable->insertPlainText("\n        ◇ 版本信息：IPv");
+                    ui->headerTable->insertPlainText(QString::number(ip->Ver_Hlen/16));
+                    ui->headerTable->insertPlainText("\n        ◇ 头长度：");
+                    ui->headerTable->insertPlainText(QString::number((ip->Ver_Hlen%16)*4)+"字节");
+                    ui->headerTable->insertPlainText("\n        ◇ 服务类型：");
+                    ui->headerTable->insertPlainText("0x"+charToHexQStr(ip->TOS));
+                    ui->headerTable->insertPlainText("\n        ◇ 数据报长度：");
+                    ui->headerTable->insertPlainText(QString::number(ntohs(ip->TotalLen)));
+                    ui->headerTable->insertPlainText("\n        ◇ 数据包标识：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->ID)));
+                    ui->headerTable->insertPlainText("\n        ◇ 分片信息：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->Flag_Segment)));
+                    ui->headerTable->insertPlainText("\n        ◇ 存活时间：");
+                    ui->headerTable->insertPlainText(QString::number(ip->TTL));
+                    ui->headerTable->insertPlainText("\n        ◇ 协议类型：TCP（6）");
+                    ui->headerTable->insertPlainText("\n        ◇ 首部校验和：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->Checksum)));
+                    ui->headerTable->insertPlainText("\n        ◇ 源IP地址：");
+                    temp_srcIP = (uchar8_t *)(&(ip->SrcIP));
+                    for(int i=0; i<4; i++){
+                        ui->headerTable->insertPlainText(QString::number(temp_srcIP[i]));
+                        if(i!=3)
+                            ui->headerTable->insertPlainText(":");
+                    }
+                    ui->headerTable->insertPlainText("\n        ◇ 目的IP地址：");
+                    temp_dstIP = (uchar8_t *)(&(ip->DstIP));
+                    for(int i=0; i<4; i++){
+                        ui->headerTable->insertPlainText(QString::number(temp_dstIP[i]));
+                        if(i!=3)
+                            ui->headerTable->insertPlainText(":");
+                    }
+                    tcp = (struct TCPHeader *)(pkt_char+ETH_HLEN+IP_HLEN);
+                    //TCP报文段头
+
+                    break;
+                //UDP IP头中类型码为 17
+                case IPPROTO_UDP:
+                    //IP数据报头
+                    ui->headerTable->insertPlainText("\n► IP数据报头（Datagram）");
+                    ui->headerTable->insertPlainText("\n        ◇ 版本信息：IPv");
+                    ui->headerTable->insertPlainText(QString::number(ip->Ver_Hlen/16));
+                    ui->headerTable->insertPlainText("\n        ◇ 头长度：");
+                    ui->headerTable->insertPlainText(QString::number((ip->Ver_Hlen%16)*4)+"字节");
+                    ui->headerTable->insertPlainText("\n        ◇ 服务类型：");
+                    ui->headerTable->insertPlainText("0x"+charToHexQStr(ip->TOS));
+                    ui->headerTable->insertPlainText("\n        ◇ 数据报长度：");
+                    ui->headerTable->insertPlainText(QString::number(ntohs(ip->TotalLen)));
+                    ui->headerTable->insertPlainText("\n        ◇ 数据包标识：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->ID)));
+                    ui->headerTable->insertPlainText("\n        ◇ 分片信息：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->Flag_Segment)));
+                    ui->headerTable->insertPlainText("\n        ◇ 存活时间：");
+                    ui->headerTable->insertPlainText(QString::number(ip->TTL));
+                    ui->headerTable->insertPlainText("\n        ◇ 协议类型：UDP（17）");
+                    ui->headerTable->insertPlainText("\n        ◇ 首部校验和：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(ip->Checksum)));
+                    ui->headerTable->insertPlainText("\n        ◇ 源IP地址：");
+                    temp_srcIP = (uchar8_t *)(&(ip->SrcIP));
+                    for(int i=0; i<4; i++){
+                        ui->headerTable->insertPlainText(QString::number(temp_srcIP[i]));
+                        if(i!=3)
+                            ui->headerTable->insertPlainText(":");
+                    }
+                    ui->headerTable->insertPlainText("\n        ◇ 目的IP地址：");
+                    temp_dstIP = (uchar8_t *)(&(ip->DstIP));
+                    for(int i=0; i<4; i++){
+                        ui->headerTable->insertPlainText(QString::number(temp_dstIP[i]));
+                        if(i!=3)
+                            ui->headerTable->insertPlainText(":");
+                    }
+                    udp = (struct UDPHeader *)(pkt_char+ETH_HLEN+IP_HLEN);
+                    //UDP报文段头
+                    ui->headerTable->insertPlainText("\n► UDP报文段头（Segment)");
+                    ui->headerTable->insertPlainText("\n        ◇ 源端口号：");
+                    ui->headerTable->insertPlainText(QString::number(ntohs(udp->SrcPort)));
+                    ui->headerTable->insertPlainText("\n        ◇ 目标端口号：");
+                    ui->headerTable->insertPlainText(QString::number(ntohs(udp->DstPort)));
+                    ui->headerTable->insertPlainText("\n        ◇ 报文段长度：");
+                    ui->headerTable->insertPlainText(QString::number(ntohs(udp->SegLen)));
+                    ui->headerTable->insertPlainText("\n        ◇ 校验和：");
+                    ui->headerTable->insertPlainText("0x"+shortToHexQStr(ntohs(udp->Checksum)));
+                    //报文
+                    ui->headerTable->insertPlainText("\n► 报文数据（Message)");
+                    ui->headerTable->insertPlainText("\n        ◇ 十六进制数据（"+QString::number(ntohs(udp->SegLen)-UDP_HLEN)+"字节）：");
+                    for(int i=0; i<(ntohs(udp->SegLen)-UDP_HLEN); i++){
+                        if(i%8 == 0)
+                            ui->headerTable->insertPlainText("\n                    ");
+                        ui->headerTable->insertPlainText(charToHexQStr(*(pkt_char+ETH_HLEN+IP_HLEN+UDP_HLEN+i))+" ");
+                    }
+
+                default:
+                    break;
+            }
+        //ARP MAC头中类型码 0x0806
+        case ETHERTYPE_ARP:
+            arp = (struct arphdr *)(pkt_char+ETH_HLEN);
+            switch(arp->ar_op)
+            {
+                //ARP请求 值为1
+                case ARP_REQUSET:
+                    break;
+                //ARP应答 值为2
+                case ARP_REPLY:
+                    break;
+                default:
+                    break;
+            }
+            break;
+        //其他类型RARP、VLAN等
+        default:
+            break;
     }
 }

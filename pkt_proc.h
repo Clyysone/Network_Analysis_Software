@@ -2,13 +2,13 @@
 #define PKT_PROC_H
 
 #include <QDialog>
-#include <pcap.h>
 #include <QMessageBox>
-#include "base_type.h"
 #include <QTableWidget>
 #include <QStandardItemModel>
-#include <QDebug>
 #include <QTableWidget>
+#include <QDebug>
+#include <time.h>
+#include "base_type.h"
 
 extern QString analyse_filename;//待分析的文件名
 extern pcappkt_t *Header_allpkt;
@@ -38,6 +38,7 @@ private:
     char errbuf[PCAP_ERRBUF_SIZE];
     QMessageBox *mybox;
     QStandardItemModel *content_model;
+    int time_sec;
 };
 
 #endif // PKT_PROC_H

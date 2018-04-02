@@ -2,11 +2,36 @@
 #define BASE_TYPE_H
 
 #include <pcap.h>
+#include <netinet/ip.h>     //结构体 struct iphdr
+#include <netinet/tcp.h>    //结构体 struct tcphdr
+#include <netinet/udp.h>    //结构体 struct udphdr
+#include <netinet/ip_icmp.h>    //结构体 struct icmphdr
+#include <net/if_arp.h>     //结构体 struct arphdr
+#include <netinet/if_ether.h>   //结构体 struct ethhdr和 struct ether_arp（整个arp包，包括arp首部）
+#include <netinet/in.h>     //定义了IP地址结构struct sockaddr_in
 #include <qstring.h>
-#define PCAP_FILE_MAGIC_1 0Xd4
-#define PCAP_FILE_MAGIC_2 0Xc3
-#define PCAP_FILE_MAGIC_3 0Xb2
-#define PCAP_FILE_MAGIC_4 0Xa1
+
+//定义一些常量
+#define EPT_IP 0x0800 //type:IP
+#define EPT_ARP 0x0806 //type:ARP
+#define EPT_RARP 0x0835 //type:RARP
+#define IPT_ICMP 1   //type:ICMP
+#define IPT_TCP 6    //type:TCP
+#define IPT_UDP 17   //type:UDP
+#define ARP_HRD 0x0001 //dummy type for 802.3 frames
+#define ARP_REQUSET 0x0001 //ARP request
+#define ARP_REPLY 0x0002 //ARP reply
+#define ICMP_TYPE_REQUEST 8
+#define ICMP_TYPE_REPLY 0
+
+#define ETH_HLEN 14
+#define IP_HLEN 20
+#define TCP_HELN 20
+#define UDP_HLEN 8
+#define PCAP_FILE_MAGIC_1 0xd4
+#define PCAP_FILE_MAGIC_2 0xc3
+#define PCAP_FILE_MAGIC_3 0xb2
+#define PCAP_FILE_MAGIC_4 0xa1
 
 //const uint32_t MAX_MTU = 1500; //设置最大MTU为1500
 
@@ -31,24 +56,27 @@ typedef struct pcapFileHeader{
 }pcapFileHeader_t;
 
 //pcap数据包头结构体(16字节)
+typedef struct ts{
+    uint32_t ts_sec;//秒数(4字节)
+    uint32_t ts_usec;//毫秒数(4字节)
+}ts_t;
 typedef struct pcapPktHeader{
-    uint32_t seconds; //秒数(4字节)
-    uint32_t u_seconds; //毫秒数(4字节)
+    ts_t ts;
     uint32_t caplen; //数据包长度(4字节)
     uint32_t len; //文件数据包长度(4字节)
 }pcapPktHeader_t;
 
 //MAC数据帧头(14字节)
-typedef struct MACHeader{
+typedef struct EtherHeader{
     uchar8_t DstMAC[6]; //目的MAC地址(6字节)
     uchar8_t SrcMAC[6]; //源MAC地址(6字节)
     uint16_t FrameType; //帧类型(2字节)
-}MACHeader_t;
+}EtherHeader_t;
 
 //MA数据帧尾(4字节)
-typedef struct MACTail{
+typedef struct EtherTail{
     uint32_t Checksum; //数据帧尾校验和(4字节)
-}MACTail_t;
+}EtherTail_t;
 
 //IP数据报头(20字节)
 typedef struct IPHeader{
@@ -88,7 +116,7 @@ typedef struct TCPOptions{
 typedef struct UDPHeader{
     uint16_t SrcPort; //源端口号(2字节)
     uint16_t DstPort; //目的端口号(2字节)
-    uint16_t HeaderLen; //头部长度(2字节)
+    uint16_t SegLen; //报文段长度(2字节)
     uint16_t Checksum; //校验和(2字节)
 }UDPHeader_t;
 
@@ -99,9 +127,14 @@ typedef struct ICMPHeader{
     uint16_t Checksum; //校验和(2字节)
 }ICMPHeader_t;
 
+//ARP头
+typedef struct ARPHeader{
+
+}ARPHeader_t;
+
 //pcap中一个包，包含指向下一个包的指针
 typedef struct pcappkt{
-    pcappkt *nextpkt;
+    struct pcappkt *nextpkt;
     pcapPktHeader_t pkthdr;
     uchar8_t pktdata[];
 }pcappkt_t;
@@ -110,4 +143,7 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
 void data_ucharToHexstr(uchar *source , uint32_t length , char *str);
 void data_HexstrTochar(char *source , int length , char *dest_str);
 void _4No_pro(int num , char *no_now);
+QString charToHexQStr(uchar8_t ch);
+QString shortToHexQStr(uint32_t ch);
+QString intToTimeStr(uint32_t sec_int);
 #endif // BASE_TYPE_H

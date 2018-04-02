@@ -1,11 +1,11 @@
 #include "base_type.h"
-#include <QDebug>
-#include <pcap.h>
 
 extern pcappkt_t *allpkt_temp;
 //回调函数，第一个参数argument为pcap_loop中的第三个参数，第二个参数为pcap文件中数据包头，第三个参数为pcap文件中数据包内容
 void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, const uchar8_t *pkt_content)
 {
+    uchar8_t *rm_warning ;
+    rm_warning = argument;  //消除警告
     allpkt_temp->nextpkt = (pcappkt_t *)malloc(sizeof(pcappkt_t) + pkt_header->caplen);
     allpkt_temp = allpkt_temp->nextpkt;
     for(uint i=0; i<pkt_header->caplen; i++){
@@ -13,8 +13,8 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
     }
     allpkt_temp->pkthdr.len = pkt_header->len;
     allpkt_temp->pkthdr.caplen = pkt_header->caplen;
-    allpkt_temp->pkthdr.seconds = pkt_header->ts.tv_sec;
-    allpkt_temp->pkthdr.u_seconds = pkt_header->ts.tv_usec;
+    allpkt_temp->pkthdr.ts.ts_sec = pkt_header->ts.tv_sec;
+    allpkt_temp->pkthdr.ts.ts_usec = pkt_header->ts.tv_usec;
     allpkt_temp->nextpkt = NULL;
 }
 
@@ -68,4 +68,38 @@ void _4No_pro(int num, char *no_now)
         no_now[2] = 'a'+temp[1]-10;
         no_now[1] = '0'+temp[0];
     }
+}
+
+QString charToHexQStr(uchar8_t ch)
+{
+    uchar8_t byte[2];
+    QString str;
+    byte[0] = ch/16;
+    byte[1] = ch%16;
+    for(int i=0; i<2; i++){
+        if(byte[i]>=0 && byte[i]<=9)
+            byte[i] = '0'+ byte[i];
+        else
+            byte[i] = 'a'+ byte[i] - 10;
+    }
+    str = QString(QLatin1Char(byte[0]))+QString(QLatin1Char(byte[1]));
+    return str;
+}
+
+QString shortToHexQStr(uint32_t ch){
+    uchar8_t byte[2];
+    byte[0] = (uchar8_t)(ch>>8);
+    byte[1] = (uchar8_t)ch;
+    return charToHexQStr(byte[0])+charToHexQStr(byte[1]);
+}
+
+QString intToTimeStr(uint32_t sec_int)
+{
+    QString str=" ";
+    int d,h,m,s;
+    d = sec_int/60/60/24;
+    h = sec_int/60/60%24;
+    m = sec_int/60%60;
+    s = sec_int%60;
+    return str;
 }
