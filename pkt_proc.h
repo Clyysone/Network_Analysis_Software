@@ -28,9 +28,12 @@ public:
 
 private slots:
     void initWidget();
-    void on_tabWidget_tabBarClicked(int index);
 
     void on_overviewTable_clicked(const QModelIndex &index);
+
+    void on_back_btn_clicked();
+
+    void on_statistics_btn_clicked();
 
 private:
     Ui::pkt_proc *ui;
@@ -38,7 +41,7 @@ private:
     char errbuf[PCAP_ERRBUF_SIZE];
     QMessageBox *mybox;
     QStandardItemModel *content_model;
-    int time_sec;
+    uint32_t time_sec;
 };
 
 #endif // PKT_PROC_H

@@ -92,14 +92,3 @@ QString shortToHexQStr(uint32_t ch){
     byte[1] = (uchar8_t)ch;
     return charToHexQStr(byte[0])+charToHexQStr(byte[1]);
 }
-
-QString intToTimeStr(uint32_t sec_int)
-{
-    QString str=" ";
-    int d,h,m,s;
-    d = sec_int/60/60/24;
-    h = sec_int/60/60%24;
-    m = sec_int/60%60;
-    s = sec_int%60;
-    return str;
-}

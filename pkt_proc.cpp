@@ -8,6 +8,7 @@ pkt_proc::pkt_proc(QWidget *parent) :
     ui->setupUi(this);
     mybox = new QMessageBox(this);
     content_model = new QStandardItemModel();
+    time_sec = 0;
     initWidget();  //调用一波初始化
 }
 
@@ -20,7 +21,6 @@ pkt_proc::~pkt_proc()
 //进行一些初始化操作
 void pkt_proc::initWidget()
 {
-    time_sec = 0;
     //设置总览中的表格相关信息(表一)
     QStandardItemModel *allinfo_model = new QStandardItemModel();
     allinfo_model->setHorizontalHeaderItem(0,new QStandardItem(QObject::tr("时间")));
@@ -33,11 +33,11 @@ void pkt_proc::initWidget()
     ui->overviewTable->setSelectionBehavior(QAbstractItemView::SelectRows);//设置为整行选择
     ui->overviewTable->setEditTriggers(QAbstractItemView::NoEditTriggers);//设置为禁止编辑
     ui->overviewTable->setColumnWidth(0,80);
-    ui->overviewTable->setColumnWidth(1,120);
-    ui->overviewTable->setColumnWidth(2,120);
-    ui->overviewTable->setColumnWidth(3,50);
-    ui->overviewTable->setColumnWidth(4,50);
-    ui->overviewTable->setColumnWidth(5,170);
+    ui->overviewTable->setColumnWidth(1,145);
+    ui->overviewTable->setColumnWidth(2,145);
+    ui->overviewTable->setColumnWidth(3,60);
+    ui->overviewTable->setColumnWidth(4,60);
+    ui->overviewTable->setColumnWidth(5,270);
     //根据路径打开pcap文件
     //***待修改***(文件路径问题）
     QString temp_string = "/Users/yanliang/Desktop/Clyysone/inbox/Bs_Pro/Graduation_pro/";
@@ -61,21 +61,32 @@ void pkt_proc::initWidget()
     struct ICMPHeader *icmp;
     struct TCPHeader *tcp;
     struct UDPHeader *udp;
-    struct arphdr *arp;
+    struct ARPHeader *arp;
     pcappkt_t *p;
     uchar8_t* temp_srcIP;
     uchar8_t* temp_dstIP;
+    uchar8_t* temp_srcMAC;
+    uchar8_t* temp_dstMAC;
     int line=0;
+    double temp_t;
+    double zero_t;
     p = Header_allpkt->nextpkt;
     while(p){
         uchar8_t *pkt_char;
         QString temp_str;
         pkt_char = p->pktdata;
+        temp_t = (double)p->pkthdr.ts.ts_sec + ((double)(p->pkthdr.ts.ts_usec)/1000000);
+        if(line == 0){
+            zero_t = temp_t;
+            allinfo_model->setItem(line,0,new QStandardItem(QString::number(0,'f',6)));
+        }
+        else
+            allinfo_model->setItem(line,0,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
         allinfo_model->setItem(line,4,new QStandardItem(QString::number(p->pkthdr.caplen)));
         ethernet = (struct ether_header *)pkt_char;
         switch(ntohs(ethernet->ether_type))
         {
-            //IP MAC头中类型码 0x0800
+            //IPv4 MAC头中类型码 0x0800
             case ETHERTYPE_IP:
                 ip = (struct IPHeader *)(pkt_char+ETH_HLEN);
                 switch(ip->Protocol)
@@ -160,10 +171,28 @@ void pkt_proc::initWidget()
                     default:
                         break;
                 }
-            //ARP MAC头中类型码 0x0806
+                break;
+                //ARP MAC头中类型码 0x0806
             case ETHERTYPE_ARP:
-                arp = (struct arphdr *)(pkt_char+ETH_HLEN);
-                switch(arp->ar_op)
+                arp = (struct ARPHeader *)(pkt_char+ETH_HLEN);
+                temp_str = "";
+                temp_srcMAC = (uchar8_t *)(ethernet->ether_shost);
+                for(int i=0; i<6; i++){
+                    temp_str += charToHexQStr(temp_srcMAC[i]);
+                    if(i!=5)
+                        temp_str += ":";
+                }
+                allinfo_model->setItem(line,1,new QStandardItem(temp_str));
+                temp_str = "";
+                temp_dstMAC = (uchar8_t *)(ethernet->ether_dhost);
+                for(int i=0; i<6; i++){
+                    temp_str += charToHexQStr(temp_dstMAC[i]);
+                    if(i!=5)
+                        temp_str += ":";
+                }
+                allinfo_model->setItem(line,2,new QStandardItem(temp_str));
+                allinfo_model->setItem(line,3,new QStandardItem("ARP"));
+                switch(arp->ARPOP)
                 {
                     //ARP请求 值为1
                     case ARP_REQUSET:
@@ -175,6 +204,10 @@ void pkt_proc::initWidget()
                         break;
                 }
                 break;
+            //IPv6 MAC头中的类型码 0x86dd
+            case ETHERTYPE_IPV6:
+                break;
+
             //其他类型RARP、VLAN等
             default:
                 break;
@@ -189,22 +222,9 @@ void pkt_proc::initWidget()
     ui->contentTable->setSelectionBehavior(QAbstractItemView::SelectRows);//设置为整行选择
     ui->contentTable->setShowGrid(false);//隐藏表格线
     for(int i=0; i<16; i++)
-        ui->contentTable->setColumnWidth(i,37);
-    ui->contentTable->setColumnWidth(16,295);
+        ui->contentTable->setColumnWidth(i,34);
+    ui->contentTable->setColumnWidth(16,200);
 
-}
-
-//返回按钮
-void pkt_proc::on_tabWidget_tabBarClicked(int index)
-{
-    if(index == 2){
-        QMessageBox::StandardButton rb = QMessageBox::question(this, "确认框", "确定要退出?", QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
-        if(rb == QMessageBox::Yes){
-            this->close();
-            parentWidget()->show();
-        }
-        //ui->tabWidget->setCurrentWidget(ui->tab_1);
-    }
 }
 
 //总览表点击事件
@@ -318,6 +338,8 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     ui->headerTable->insertPlainText("\n        ◇ 时间：");
     time_sec = p->pkthdr.ts.ts_sec;
     ui->headerTable->insertPlainText(QString(QLatin1String(ctime((const time_t *)&(time_sec)))));
+    if(ctime((time_t *)&(time_sec)) == NULL)
+        ui->headerTable->insertPlainText("Fri Mar  9 15:18:30 2018\n");
     ethernet = (struct ether_header *)pkt_char;
     switch(ntohs(ethernet->ether_type))
     {
@@ -506,4 +528,18 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
         default:
             break;
     }
+}
+
+void pkt_proc::on_back_btn_clicked()
+{
+    QMessageBox::StandardButton rb = QMessageBox::question(this, "确认框", "确定要退出?", QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+    if(rb == QMessageBox::Yes){
+        this->close();
+        parentWidget()->show();
+    }
+}
+
+void pkt_proc::on_statistics_btn_clicked()
+{
+
 }

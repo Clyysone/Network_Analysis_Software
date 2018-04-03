@@ -24,10 +24,10 @@
 #define ICMP_TYPE_REQUEST 8
 #define ICMP_TYPE_REPLY 0
 
-#define ETH_HLEN 14
-#define IP_HLEN 20
-#define TCP_HELN 20
-#define UDP_HLEN 8
+#define ETH_HLEN 14 //以太网头长度
+#define IP_HLEN 20  //IP头长度
+#define TCP_HELN 20 //TCP头长度
+#define UDP_HLEN 8  //UDP头长度
 #define PCAP_FILE_MAGIC_1 0xd4
 #define PCAP_FILE_MAGIC_2 0xc3
 #define PCAP_FILE_MAGIC_3 0xb2
@@ -129,7 +129,11 @@ typedef struct ICMPHeader{
 
 //ARP头
 typedef struct ARPHeader{
-
+    uint16_t ARPHrd;
+    uint16_t ARPPro;
+    uchar8_t ARPHLn;
+    uchar8_t ARPPln;
+    uint16_t ARPOP;
 }ARPHeader_t;
 
 //pcap中一个包，包含指向下一个包的指针
@@ -145,5 +149,5 @@ void data_HexstrTochar(char *source , int length , char *dest_str);
 void _4No_pro(int num , char *no_now);
 QString charToHexQStr(uchar8_t ch);
 QString shortToHexQStr(uint32_t ch);
-QString intToTimeStr(uint32_t sec_int);
+
 #endif // BASE_TYPE_H
