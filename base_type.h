@@ -26,8 +26,10 @@
 
 #define ETH_HLEN 14 //以太网头长度
 #define IP_HLEN 20  //IP头长度
-#define TCP_HELN 20 //TCP头长度
+#define TCP_HLEN 20 //TCP头长度
 #define UDP_HLEN 8  //UDP头长度
+#define ICMP_HLEN 4 //ICMP头长度
+#define ARP_HLEN 8  //  ARP头长度
 #define PCAP_FILE_MAGIC_1 0xd4
 #define PCAP_FILE_MAGIC_2 0xc3
 #define PCAP_FILE_MAGIC_3 0xb2
@@ -136,18 +138,72 @@ typedef struct ARPHeader{
     uint16_t ARPOP;
 }ARPHeader_t;
 
-//pcap中一个包，包含指向下一个包的指针
-typedef struct pcappkt{
-    struct pcappkt *nextpkt;
+/*每个协议类型设置一个链表用来存储解析后的数据
+ *  ARP ICMP TCP UDP
+*/
+//ICMP
+typedef struct ICMP_List{
+    struct ICMP_List *next;
+    int Seq_num;
     pcapPktHeader_t pkthdr;
-    uchar8_t pktdata[];
-}pcappkt_t;
+    EtherHeader_t etherhdr;
+    IPHeader_t iphdr;
+    ICMPHeader_t icmphdr;
+    uchar8_t data[];
+}ICMP_List_t;
+
+typedef struct TCP_List{
+    struct TCP_List *next;
+    int Seq_num;
+    pcapPktHeader_t pkthdr;
+    EtherHeader_t etherhdr;
+    IPHeader_t iphdr;
+    TCPHeader_t tcphdr;
+    uchar8_t data[];
+}TCP_List_t;
+
+typedef struct UDP_List{
+    struct UDP_List *next;
+    int Seq_num;
+    pcapPktHeader_t pkthdr;
+    EtherHeader_t etherhdr;
+    IPHeader_t iphdr;
+    UDPHeader_t udphdr;
+    uchar8_t data[];
+}UDP_List_t;
+
+typedef struct ARP_List{
+    struct ARP_List *next;
+    int Seq_num;
+    pcapPktHeader_t pkthdr;
+    EtherHeader_t etherhdr;
+    ARPHeader_t arphdr;
+    uchar8_t data[];
+}ARP_List_t;
+
+//总表（包含所有表的表头指针）
+typedef struct All_list_hdr{
+    ICMP_List_t *icmp_listhdr;
+    TCP_List_t *tcp_listhdr;
+    UDP_List_t *udp_listhdr;
+    ARP_List_t *arp_listhdr;
+}All_list_hdr_t;
 
 void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, const uchar8_t *pkt_content);
 void data_ucharToHexstr(uchar *source , uint32_t length , char *str);
 void data_HexstrTochar(char *source , int length , char *dest_str);
 void _4No_pro(int num , char *no_now);
-QString charToHexQStr(uchar8_t ch);
-QString shortToHexQStr(uint32_t ch);
+QString ucharToHexQStr(uchar8_t ch);
+QString ushortToHexQStr(uint32_t ch);
+QString uintToIPQstr(uint32_t ip);
+QString ucharToMACQstr(uchar8_t *ether);
+void PcapHdrCopy(const struct pcap_pkthdr *src_pcappkt, pcapPktHeader_t *dst_pcappkt);
+void EtherHdrCopy(EtherHeader_t *src_ether,EtherHeader_t *dst_ether);   //以太网头的复制
+void IPHdrCopy(IPHeader_t *src_ip,IPHeader_t *dst_ip);  //IP头的复制
+void ICMPHdrCopy(ICMPHeader_t *src_icmp,ICMPHeader_t *dst_icmp);    //ICMP头的复制
+void TCPHdrCopy(TCPHeader_t *src_tcp,TCPHeader_t *dst_tcp); //TCP头的复制
+void UDPHdrCopy(UDPHeader_t *src_udp,UDPHeader_t *dst_udp); //UDP头的复制
+void ARPHdrCopy(ARPHeader_t *src_arp,ARPHeader_t *dst_arp); //ARP头的复制
+void DataChToCh(const uchar8_t *src_ch,uchar8_t *dst_ch,uint32_t len); //字符串的复制
 
 #endif // BASE_TYPE_H

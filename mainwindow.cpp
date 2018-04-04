@@ -8,21 +8,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     mybox = new QMessageBox(this);
-    //qDebug() << QDir::currentPath();
-    //QDir::setCurrent(qApp->applicationDirPath());
-    //——从这——
-    QDir dir;
-    dir.setPath("/Users/yanliang/Desktop/Clyysone/inbox/Bs_Pro/Graduation_pro");//***有待修改***
-    QStringList filters;
-    filters << "*.pcap";
-    dir.setNameFilters(filters);
-    QFileInfoList list = dir.entryInfoList();
-    ui->FileComboBox->clear();
-    ui->FileComboBox->addItem("");
-    for (int i = 0; i < list.size(); i++){
-        ui->FileComboBox->addItem(list.at(i).fileName());
-    }
-    //——到这——为下拉框初始化；
+    on_refresh_btn_clicked();
 }
 
 MainWindow::~MainWindow()
@@ -60,6 +46,8 @@ void MainWindow::on_help_btn_clicked()
 //刷新按钮
 void MainWindow::on_refresh_btn_clicked()
 {
+    //qDebug() << QDir::currentPath();
+    //QDir::setCurrent(qApp->applicationDirPath());
     QDir dir;
     dir.setPath("/Users/yanliang/Desktop/Clyysone/inbox/Bs_Pro/Graduation_pro");//***有待修改***
     QStringList filters; //只去读pcap后缀的文件
