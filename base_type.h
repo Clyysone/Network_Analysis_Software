@@ -183,6 +183,10 @@ typedef struct ARP_List{
 
 //总表（包含所有表的表头指针）
 typedef struct All_list_hdr{
+    int icmp_num;
+    int tcp_num;
+    int udp_num;
+    int arp_num;
     ICMP_List_t *icmp_listhdr;
     TCP_List_t *tcp_listhdr;
     UDP_List_t *udp_listhdr;

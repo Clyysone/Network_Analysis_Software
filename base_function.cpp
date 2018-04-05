@@ -36,6 +36,7 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
                 //ICMP IP头中类型码为 1
                 case IPT_ICMP:
                     icmp = (struct ICMPHeader *)(pkt_content+ETH_HLEN+IP_HLEN);
+                    Alist_Hdr.icmp_num = Alist_Hdr.icmp_num + 1;
                     if(flag_icmp == 1){
                         temp_icmp = (ICMP_List_t *)malloc(sizeof(ICMP_List_t) + (pkt_header->caplen)-(ETH_HLEN+IP_HLEN+ICMP_HLEN));
                         Alist_Hdr.icmp_listhdr = temp_icmp;
@@ -43,14 +44,14 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
                     else{
                         temp_icmp->next = (ICMP_List_t *)malloc(sizeof(ICMP_List_t) + (pkt_header->caplen)-(ETH_HLEN+IP_HLEN+ICMP_HLEN));
                         temp_icmp = temp_icmp->next;
-                        temp_icmp->next = NULL;
+                        temp_icmp->next = NULL;                        
                     }
                     PcapHdrCopy(pkt_header,&(temp_icmp->pkthdr));
                     EtherHdrCopy(ethernet,&(temp_icmp->etherhdr));
                     IPHdrCopy(ip,&(temp_icmp->iphdr));
                     ICMPHdrCopy(icmp,&(temp_icmp->icmphdr));
                     DataChToCh((pkt_content+ETH_HLEN+IP_HLEN+ICMP_HLEN), temp_icmp->data, (pkt_header->caplen)-(ETH_HLEN+IP_HLEN+ICMP_HLEN));
-                    temp_icmp->Seq_num = line;
+                    temp_icmp->Seq_num = line+1;
                     flag_icmp = 0;
                     switch(icmp->ICMPType)
                     {
@@ -68,6 +69,7 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
                 //TCP IP头中类型码为 6
                 case IPT_TCP:
                     tcp = (struct TCPHeader *)(pkt_content+ETH_HLEN+IP_HLEN);
+                    Alist_Hdr.tcp_num = Alist_Hdr.tcp_num + 1;
                     if(flag_tcp == 1){
                         temp_tcp = (TCP_List_t *)malloc(sizeof(TCP_List_t) + (pkt_header->caplen)-(ETH_HLEN+IP_HLEN+TCP_HLEN));
                         Alist_Hdr.tcp_listhdr = temp_tcp;
@@ -75,19 +77,20 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
                     else{
                         temp_tcp->next = (TCP_List_t *)malloc(sizeof(TCP_List_t) + (pkt_header->caplen)-(ETH_HLEN+IP_HLEN+TCP_HLEN));
                         temp_tcp = temp_tcp->next;
-                        temp_tcp->next = NULL;
+                        temp_tcp->next = NULL;                        
                     }
                     PcapHdrCopy(pkt_header,&(temp_tcp->pkthdr));
                     EtherHdrCopy(ethernet,&(temp_tcp->etherhdr));
                     IPHdrCopy(ip,&(temp_tcp->iphdr));
                     TCPHdrCopy(tcp,&(temp_tcp->tcphdr));
                     DataChToCh(pkt_content+ETH_HLEN+IP_HLEN+TCP_HLEN,temp_tcp->data,(pkt_header->caplen)-(ETH_HLEN+IP_HLEN+TCP_HLEN));
-                    temp_tcp->Seq_num = line;
+                    temp_tcp->Seq_num = line+1;
                     flag_tcp = 0;
                     break;
                 //UDP IP头中类型码为 17
                 case IPT_UDP:
                     udp = (struct UDPHeader *)(pkt_content+ETH_HLEN+IP_HLEN);
+                    Alist_Hdr.udp_num = Alist_Hdr.udp_num + 1;
                     if(flag_udp == 1){
                         temp_udp = (UDP_List_t *)malloc(sizeof(UDP_List_t) + (pkt_header->caplen)-(ETH_HLEN+IP_HLEN+UDP_HLEN));
                         Alist_Hdr.udp_listhdr = temp_udp;
@@ -102,7 +105,7 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
                     IPHdrCopy(ip,&(temp_udp->iphdr));
                     UDPHdrCopy(udp,&(temp_udp->udphdr));
                     DataChToCh(pkt_content+ETH_HLEN+IP_HLEN+UDP_HLEN,temp_udp->data,(pkt_header->caplen)-(ETH_HLEN+IP_HLEN+UDP_HLEN));
-                    temp_udp->Seq_num = line;
+                    temp_udp->Seq_num = line+1;
                     flag_udp = 0;
                     break;
                 default:
@@ -112,6 +115,7 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
         //ARP MAC头中类型码 0x0806
         case EPT_ARP:
             arp = (struct ARPHeader *)(pkt_content+ETH_HLEN);
+            Alist_Hdr.arp_num = Alist_Hdr.arp_num + 1;
             if(flag_arp == 1){
                 temp_arp = (ARP_List_t *)malloc(sizeof(ARP_List_t) + (pkt_header->caplen)-(ETH_HLEN+ARP_HLEN));
                 Alist_Hdr.arp_listhdr = temp_arp;
@@ -119,13 +123,13 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
             else{
                 temp_arp->next = (ARP_List_t *)malloc(sizeof(ARP_List_t) + (pkt_header->caplen)-(ETH_HLEN+ARP_HLEN));
                 temp_arp = temp_arp->next;
-                temp_arp->next = NULL;
+                temp_arp->next = NULL;               
             }
             PcapHdrCopy(pkt_header,&(temp_arp->pkthdr));
             EtherHdrCopy(ethernet,&(temp_arp->etherhdr));
             ARPHdrCopy(arp,&(temp_arp->arphdr));
             DataChToCh(pkt_content+ETH_HLEN+ARP_HLEN,temp_arp->data,(pkt_header->caplen)-(ETH_HLEN+ARP_HLEN));
-            temp_arp->Seq_num = line;
+            temp_arp->Seq_num = line+1;
             flag_arp = 0;
             switch(arp->ARPOP)
             {
@@ -232,7 +236,7 @@ QString uintToIPQstr(uint32_t ip)
     for(int i=0; i<4; i++){
         str += QString::number(temp_srcIP[i]);
         if(i!=3)
-            str += ":";
+            str += ".";
     }
     return str;
 }

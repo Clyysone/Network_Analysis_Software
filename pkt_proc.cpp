@@ -9,16 +9,11 @@ pkt_proc::pkt_proc(QWidget *parent) :
     mybox = new QMessageBox(this);
     content_model = new QStandardItemModel();
     time_sec = 0;
-    Alist_Hdr.arp_listhdr = NULL;
-    Alist_Hdr.icmp_listhdr = NULL;
-    Alist_Hdr.tcp_listhdr = NULL;
-    Alist_Hdr.udp_listhdr = NULL;
+    Alist_Hdr = {0,0,0,0,NULL,NULL,NULL,NULL};
     line = 0;
-    flag_icmp = 1;
-    flag_tcp = 1;
-    flag_udp = 1;
-    flag_arp = 1;
+    flag_icmp = flag_tcp = flag_udp = flag_arp = 1;
     analyse_pkt(); //解析包中数据并存在链表中
+    overview_init();
     initWidget();  //调用一波初始化
 }
 
@@ -45,28 +40,29 @@ void pkt_proc::analyse_pkt()
     }
     //读取文件中内容到链表当中
     pcap_loop(source_pcap_t,-1,pcap_callback_t,NULL);
-
 }
-//进行一些初始化操作
-void pkt_proc::initWidget()
+
+void pkt_proc::overview_init()
 {
     //设置总览中的表格相关信息(表一)
     allinfo_model = new QStandardItemModel();
-    allinfo_model->setHorizontalHeaderItem(0,new QStandardItem(QObject::tr("时间")));
-    allinfo_model->setHorizontalHeaderItem(1,new QStandardItem(QObject::tr("源地址")));
-    allinfo_model->setHorizontalHeaderItem(2,new QStandardItem(QObject::tr("目的地址")));
-    allinfo_model->setHorizontalHeaderItem(3,new QStandardItem(QObject::tr("协议")));
-    allinfo_model->setHorizontalHeaderItem(4,new QStandardItem(QObject::tr("长度")));
-    allinfo_model->setHorizontalHeaderItem(5,new QStandardItem(QObject::tr("信息")));
+    allinfo_model->setHorizontalHeaderItem(0,new QStandardItem(QObject::tr("序号")));
+    allinfo_model->setHorizontalHeaderItem(1,new QStandardItem(QObject::tr("时间")));
+    allinfo_model->setHorizontalHeaderItem(2,new QStandardItem(QObject::tr("源地址")));
+    allinfo_model->setHorizontalHeaderItem(3,new QStandardItem(QObject::tr("目的地址")));
+    allinfo_model->setHorizontalHeaderItem(4,new QStandardItem(QObject::tr("协议")));
+    allinfo_model->setHorizontalHeaderItem(5,new QStandardItem(QObject::tr("长度")));
+    allinfo_model->setHorizontalHeaderItem(6,new QStandardItem(QObject::tr("信息")));
     ui->overviewTable->setModel(allinfo_model);
     ui->overviewTable->setSelectionBehavior(QAbstractItemView::SelectRows);//设置为整行选择
     ui->overviewTable->setEditTriggers(QAbstractItemView::NoEditTriggers);//设置为禁止编辑
-    ui->overviewTable->setColumnWidth(0,80);
-    ui->overviewTable->setColumnWidth(1,145);
-    ui->overviewTable->setColumnWidth(2,145);
-    ui->overviewTable->setColumnWidth(3,60);
-    ui->overviewTable->setColumnWidth(4,60);
-    ui->overviewTable->setColumnWidth(5,270);
+    ui->overviewTable->setColumnWidth(0,40);
+    ui->overviewTable->setColumnWidth(1,80);
+    ui->overviewTable->setColumnWidth(2,140);
+    ui->overviewTable->setColumnWidth(3,140);
+    ui->overviewTable->setColumnWidth(4,55);
+    ui->overviewTable->setColumnWidth(5,55);
+    ui->overviewTable->setColumnWidth(6,250);
 
     //显示到总览表
     //ICMP TCP UDP ARP依次遍历后输出到表中
@@ -78,34 +74,37 @@ void pkt_proc::initWidget()
     //ICMP
     while(icmp_p){
         temp_t = (double)icmp_p->pkthdr.ts.ts_sec + ((double)(icmp_p->pkthdr.ts.ts_usec)/1000000);
-        allinfo_model->setItem(icmp_p->Seq_num,0,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
-        allinfo_model->setItem(icmp_p->Seq_num,1,new QStandardItem(uintToIPQstr(icmp_p->iphdr.SrcIP)));
-        allinfo_model->setItem(icmp_p->Seq_num,2,new QStandardItem(uintToIPQstr(icmp_p->iphdr.DstIP)));
-        allinfo_model->setItem(icmp_p->Seq_num,3,new QStandardItem("ICMP"));
-        allinfo_model->setItem(icmp_p->Seq_num,4,new QStandardItem(QString::number(icmp_p->pkthdr.caplen)));
-        allinfo_model->setItem(icmp_p->Seq_num,5,new QStandardItem("ICMP"));
+        allinfo_model->setItem(icmp_p->Seq_num-1,0,new QStandardItem(QString::number(icmp_p->Seq_num)));
+        allinfo_model->setItem(icmp_p->Seq_num-1,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+        allinfo_model->setItem(icmp_p->Seq_num-1,2,new QStandardItem(uintToIPQstr(icmp_p->iphdr.SrcIP)));
+        allinfo_model->setItem(icmp_p->Seq_num-1,3,new QStandardItem(uintToIPQstr(icmp_p->iphdr.DstIP)));
+        allinfo_model->setItem(icmp_p->Seq_num-1,4,new QStandardItem("ICMP"));
+        allinfo_model->setItem(icmp_p->Seq_num-1,5,new QStandardItem(QString::number(icmp_p->pkthdr.caplen)));
+        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("ICMP"));
         icmp_p = icmp_p->next;
     }
     //TCP
     while(tcp_p){
         temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
-        allinfo_model->setItem(tcp_p->Seq_num,0,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
-        allinfo_model->setItem(tcp_p->Seq_num,1,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
-        allinfo_model->setItem(tcp_p->Seq_num,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
-        allinfo_model->setItem(tcp_p->Seq_num,3,new QStandardItem("TCP"));
-        allinfo_model->setItem(tcp_p->Seq_num,4,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
-        allinfo_model->setItem(tcp_p->Seq_num,5,new QStandardItem("TCP"));
+        allinfo_model->setItem(tcp_p->Seq_num-1,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
+        allinfo_model->setItem(tcp_p->Seq_num-1,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+        allinfo_model->setItem(tcp_p->Seq_num-1,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
+        allinfo_model->setItem(tcp_p->Seq_num-1,3,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
+        allinfo_model->setItem(tcp_p->Seq_num-1,4,new QStandardItem("TCP"));
+        allinfo_model->setItem(tcp_p->Seq_num-1,5,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
+        allinfo_model->setItem(tcp_p->Seq_num-1,6,new QStandardItem("TCP"));
         tcp_p = tcp_p->next;
     }
     //UDP
     while(udp_p){
         temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
-        allinfo_model->setItem(udp_p->Seq_num,0,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
-        allinfo_model->setItem(udp_p->Seq_num,1,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
-        allinfo_model->setItem(udp_p->Seq_num,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
-        allinfo_model->setItem(udp_p->Seq_num,3,new QStandardItem("UDP"));
-        allinfo_model->setItem(udp_p->Seq_num,4,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
-        allinfo_model->setItem(udp_p->Seq_num,5,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+        allinfo_model->setItem(udp_p->Seq_num-1,0,new QStandardItem(QString::number(udp_p->Seq_num)));
+        allinfo_model->setItem(udp_p->Seq_num-1,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+        allinfo_model->setItem(udp_p->Seq_num-1,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
+        allinfo_model->setItem(udp_p->Seq_num-1,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
+        allinfo_model->setItem(udp_p->Seq_num-1,4,new QStandardItem("UDP"));
+        allinfo_model->setItem(udp_p->Seq_num-1,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
+        allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
                                                                   QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
                                                                   QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
         udp_p = udp_p->next;
@@ -113,15 +112,19 @@ void pkt_proc::initWidget()
 
     while(arp_p){
         temp_t = (double)arp_p->pkthdr.ts.ts_sec + ((double)(arp_p->pkthdr.ts.ts_usec)/1000000);
-        allinfo_model->setItem(arp_p->Seq_num,0,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
-        allinfo_model->setItem(arp_p->Seq_num,1,new QStandardItem(ucharToMACQstr(arp_p->etherhdr.SrcMAC)));
-        allinfo_model->setItem(arp_p->Seq_num,2,new QStandardItem(ucharToMACQstr(arp_p->etherhdr.DstMAC)));
-        allinfo_model->setItem(arp_p->Seq_num,3,new QStandardItem("ARP"));
-        allinfo_model->setItem(arp_p->Seq_num,4,new QStandardItem(QString::number(arp_p->pkthdr.caplen)));
-        allinfo_model->setItem(arp_p->Seq_num,5,new QStandardItem("ARP"));
+        allinfo_model->setItem(arp_p->Seq_num-1,0,new QStandardItem(QString::number(arp_p->Seq_num)));
+        allinfo_model->setItem(arp_p->Seq_num-1,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+        allinfo_model->setItem(arp_p->Seq_num-1,2,new QStandardItem(ucharToMACQstr(arp_p->etherhdr.SrcMAC)));
+        allinfo_model->setItem(arp_p->Seq_num-1,3,new QStandardItem(ucharToMACQstr(arp_p->etherhdr.DstMAC)));
+        allinfo_model->setItem(arp_p->Seq_num-1,4,new QStandardItem("ARP"));
+        allinfo_model->setItem(arp_p->Seq_num-1,5,new QStandardItem(QString::number(arp_p->pkthdr.caplen)));
+        allinfo_model->setItem(arp_p->Seq_num-1,6,new QStandardItem("ARP"));
         arp_p = arp_p->next;
     }
-
+}
+//进行一些初始化操作
+void pkt_proc::initWidget()
+{
     //设置数据内容表中的相关信息(表2)
     content_model->setHorizontalHeaderItem(16,new QStandardItem(QObject::tr("ASCII码")));
     ui->contentTable->setModel(content_model);
@@ -131,16 +134,33 @@ void pkt_proc::initWidget()
     for(int i=0; i<16; i++)
         ui->contentTable->setColumnWidth(i,34);
     ui->contentTable->setColumnWidth(16,200);
+
+    //显示统计表
+    ui->statistics_browser->clear();
+    ui->statistics_browser->insertPlainText("► Pcap文件信息：");
+    ui->statistics_browser->insertPlainText("\n        ◇ 文件名称：" + analyse_filename);
+    ui->statistics_browser->insertPlainText("\n        ◇ 链路类型：Ethernet");
+    ui->statistics_browser->insertPlainText("\n        ◇ 抓包数量：" + QString::number(line));
+    time_sec = (uint64_t)zero_t;
+    ui->statistics_browser->insertPlainText("\n        ◇ 抓包时间：" + QString(QLatin1String(ctime((const time_t *)&(time_sec)))));
+    ui->statistics_browser->insertPlainText("► 包类型统计信息：");
+    ui->statistics_browser->insertPlainText("\n        ◇ ICMP：" + QString::number(Alist_Hdr.icmp_num));
+    ui->statistics_browser->insertPlainText("\n        ◇ TCP：" + QString::number(Alist_Hdr.tcp_num));
+    ui->statistics_browser->insertPlainText("\n        ◇ UDP：" + QString::number(Alist_Hdr.udp_num));
+    ui->statistics_browser->insertPlainText("\n        ◇ ARP：" + QString::number(Alist_Hdr.arp_num));
+    ui->statistics_browser->insertPlainText("\n► 条件统计信息：");
+    ui->statistics_browser->insertPlainText("\n        ◇ 暂无");
+
+    //设置初始lineEdit
+    ui->ipaddr_input->setEnabled(0);
+    ui->port_input->setEnabled(0);
 }
 
 //总览表点击事件
 void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
 {
     //清空内容不清除表头
-    int row_cnt = content_model->rowCount();
-    for(int i=0; i<row_cnt; i++){
-        content_model->removeRow(i);
-    }
+    content_model->removeRow(content_model->rowCount());
     //清除详细信息显示框
     ui->headerTable->clear();
     /*分析统计部分
@@ -163,11 +183,12 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     uint32_t pkt_length = 0; //包的字节数
     uchar8_t *pkt_char;
     uint32_t content_row; // 显示行数，每16字节一行
-    QString pro_str = allinfo_model->data(allinfo_model->index(index.row(),3)).toString();
+    QString pro_str = allinfo_model->data(allinfo_model->index(index.row(),4)).toString();
+    int cur_seq = allinfo_model->data(allinfo_model->index(index.row(),0)).toInt();
     if(pro_str == "ICMP"){
         ICMP_List_t *temp_icmp_p = Alist_Hdr.icmp_listhdr;
         while(temp_icmp_p){
-            if(temp_icmp_p->Seq_num == index.row())
+            if(temp_icmp_p->Seq_num == cur_seq)
                 break;
             else
                 temp_icmp_p = temp_icmp_p->next;
@@ -185,7 +206,7 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     else if(pro_str == "TCP"){
         TCP_List_t *temp_tcp_p = Alist_Hdr.tcp_listhdr;
         while(temp_tcp_p){
-            if(temp_tcp_p->Seq_num == index.row())
+            if(temp_tcp_p->Seq_num == cur_seq)
                 break;
             else
                 temp_tcp_p = temp_tcp_p->next;
@@ -203,7 +224,7 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     else if(pro_str == "UDP"){
         UDP_List_t *temp_udp_p = Alist_Hdr.udp_listhdr;
         while(temp_udp_p){
-            if(temp_udp_p->Seq_num == index.row())
+            if(temp_udp_p->Seq_num == cur_seq)
                 break;
             else
                 temp_udp_p = temp_udp_p->next;
@@ -221,7 +242,7 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     else if(pro_str == "ARP"){
         ARP_List_t *temp_arp_p = Alist_Hdr.arp_listhdr;
         while(temp_arp_p){
-            if(temp_arp_p->Seq_num == index.row())
+            if(temp_arp_p->Seq_num == cur_seq)
                 break;
             else
                 temp_arp_p = temp_arp_p->next;
@@ -428,5 +449,312 @@ void pkt_proc::on_back_btn_clicked()
 
 void pkt_proc::on_statistics_btn_clicked()
 {
+    //清空内容不清除表头
+    allinfo_model->removeRows(0,allinfo_model->rowCount());
 
+    ICMP_List_t *icmp_p = Alist_Hdr.icmp_listhdr;
+    TCP_List_t *tcp_p = Alist_Hdr.tcp_listhdr;
+    UDP_List_t *udp_p = Alist_Hdr.udp_listhdr;
+    ARP_List_t *arp_p = Alist_Hdr.arp_listhdr;
+    double temp_t;
+    //protocol
+    //All____
+    if(ui->all_op_btn->isChecked() == true){
+        overview_init();
+    }
+    //ICMP_____
+    else if(ui->icmp_op_btn->isChecked() == true){
+        QString temp_ipstr = NULL;
+        int line_temp = 0;
+        while(icmp_p){
+            //port不存在的
+            if(ui->assign_port_btn->isChecked() == true){
+                mybox->show();
+                mybox->setText("该协议不具备端口号");
+                ui->all_port_btn->setChecked(true);
+                //ui->assign_port_btn->setChecked(false);
+                break;
+            }
+            //仅ip
+            else if(ui->assign_ip_btn->isChecked() == true){
+                temp_ipstr = ui->ipaddr_input->text();
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入IP");
+                    break;
+                }
+                if((uintToIPQstr(icmp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(icmp_p->iphdr.DstIP) == temp_ipstr)){
+                    temp_t = (double)icmp_p->pkthdr.ts.ts_sec + ((double)(icmp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(icmp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(icmp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(icmp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("ICMP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(icmp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("ICMP"));
+                    line_temp++;
+                }
+                icmp_p = icmp_p->next;
+            }
+            else{
+                temp_t = (double)icmp_p->pkthdr.ts.ts_sec + ((double)(icmp_p->pkthdr.ts.ts_usec)/1000000);
+                allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(icmp_p->Seq_num)));
+                allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(icmp_p->iphdr.SrcIP)));
+                allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(icmp_p->iphdr.DstIP)));
+                allinfo_model->setItem(line_temp,4,new QStandardItem("ICMP"));
+                allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(icmp_p->pkthdr.caplen)));
+                allinfo_model->setItem(line_temp,6,new QStandardItem("ICMP"));
+                line_temp++;
+                icmp_p = icmp_p->next;
+            }
+        }
+    }
+    //TCP____
+    else if(ui->tcp_op_btn->isChecked() == true){
+        QString temp_ipstr = NULL;
+        QString temp_portstr = NULL;
+        int line_temp = 0;
+        while(tcp_p){
+            //ip port 都筛选
+            if(ui->assign_ip_btn->isChecked() == true && ui->assign_port_btn->isChecked() == true){
+                temp_ipstr = ui->ipaddr_input->text();
+                temp_portstr = ui->port_input->text();
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入IP");
+                    break;
+                }
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入端口号");
+                    break;
+                }
+                if((uintToIPQstr(tcp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(tcp_p->iphdr.DstIP) == temp_ipstr)
+                        && (QString::number(ntohs(tcp_p->tcphdr.SrcPort)) == temp_portstr || QString::number(ntohs(tcp_p->tcphdr.DstPort)) == temp_portstr)){
+                    temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("TCP"));
+                    line_temp++;
+                }
+                tcp_p = tcp_p->next;
+            }
+            //仅ip
+            else if(ui->assign_ip_btn->isChecked() == true && ui->assign_port_btn->isChecked() != true){
+                temp_ipstr = ui->ipaddr_input->text();
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入IP");
+                    break;
+                }
+                if(uintToIPQstr(tcp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(tcp_p->iphdr.DstIP) == temp_ipstr){
+                    temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("TCP"));
+                    line_temp++;
+                }
+                tcp_p = tcp_p->next;
+            }
+            //仅port
+            else if(ui->assign_ip_btn->isChecked() != true && ui->assign_port_btn->isChecked() == true){
+                temp_portstr = ui->port_input->text();
+                if(temp_portstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入端口号");
+                    break;
+                }
+                if(QString::number(ntohs(tcp_p->tcphdr.SrcPort)) == temp_portstr || QString::number(ntohs(tcp_p->tcphdr.DstPort)) == temp_portstr){
+                    temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("TCP"));
+                    line_temp++;
+                }
+                tcp_p = tcp_p->next;
+            }
+            //ip port 都为空
+            else if(ui->assign_ip_btn->isChecked() != true && ui->assign_port_btn->isChecked() != true){
+                temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
+                allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
+                allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
+                allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
+                allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
+                allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
+                allinfo_model->setItem(line_temp,6,new QStandardItem("TCP"));
+                line_temp++;
+                tcp_p = tcp_p->next;
+            }
+        }
+    }
+    //UDP____
+    else if(ui->udp_op_btn->isChecked() == true){
+        QString temp_ipstr = NULL;
+        QString temp_portstr = NULL;
+        int line_temp = 0;
+        while(udp_p){
+            //ip port 都筛选
+            if(ui->assign_ip_btn->isChecked() == true && ui->assign_port_btn->isChecked() == true){
+                temp_ipstr = ui->ipaddr_input->text();
+                temp_portstr = ui->port_input->text();
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入IP");
+                    break;
+                }
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入端口号");
+                    break;
+                }
+                if((uintToIPQstr(udp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(udp_p->iphdr.DstIP) == temp_ipstr)
+                        && (QString::number(ntohs(udp_p->udphdr.SrcPort)) == temp_portstr || QString::number(ntohs(udp_p->udphdr.DstPort)) == temp_portstr)){
+                    temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(udp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                                                                         QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
+                                                                         QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
+                    line_temp++;
+                }
+                udp_p = udp_p->next;
+            }
+            //仅ip
+            else if(ui->assign_ip_btn->isChecked() == true && ui->assign_port_btn->isChecked() != true){
+                temp_ipstr = ui->ipaddr_input->text();
+                if(temp_ipstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入IP");
+                    break;
+                }
+                if(uintToIPQstr(udp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(udp_p->iphdr.DstIP) == temp_ipstr){
+                    temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(udp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                                                                         QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
+                                                                         QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
+                line_temp++;
+                }
+                udp_p = udp_p->next;
+            }
+            //仅port
+            else if(ui->assign_ip_btn->isChecked() != true && ui->assign_port_btn->isChecked() == true){
+                temp_portstr = ui->port_input->text();
+                if(temp_portstr == NULL){
+                    mybox->show();
+                    mybox->setText("请输入端口号");
+                    break;
+                }
+                if(QString::number(ntohs(udp_p->udphdr.SrcPort)) == temp_portstr || QString::number(ntohs(udp_p->udphdr.DstPort)) == temp_portstr){
+                    temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
+                    allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(udp_p->Seq_num)));
+                    allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                    allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
+                    allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
+                    allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
+                    allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
+                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                                                                         QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
+                                                                         QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
+                    line_temp++;
+                }
+                udp_p = udp_p->next;
+            }
+            //ip port 都为空
+            else if(ui->assign_ip_btn->isChecked() != true && ui->assign_port_btn->isChecked() != true){
+                temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
+                allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(udp_p->Seq_num)));
+                allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                allinfo_model->setItem(line_temp,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
+                allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
+                allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
+                allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
+                allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                                                                     QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
+                                                                     QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
+                line_temp++;
+                udp_p = udp_p->next;
+            }
+        }
+    }
+    //ARP____
+    else if(ui->arp_op_btn->isChecked() == true){
+        int line_temp = 0;
+        while(arp_p){
+            //port不存在的
+            if(ui->assign_port_btn->isChecked() == true){
+                mybox->show();
+                mybox->setText("该协议不具备端口号");
+                ui->all_port_btn->setChecked(true);
+                //ui->assign_port_btn->setChecked(false);
+                break;
+            }
+            //仅ip
+            else if(ui->assign_ip_btn->isChecked() == true){
+                mybox->show();
+                mybox->setText("该协议不具备IP头");
+                ui->all_ip_btn->setChecked(true);
+                //ui->assign_ip_btn->setChecked(false);
+                break;
+            }
+            else{
+                temp_t = (double)arp_p->pkthdr.ts.ts_sec + ((double)(arp_p->pkthdr.ts.ts_usec)/1000000);
+                allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(arp_p->Seq_num)));
+                allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
+                allinfo_model->setItem(line_temp,2,new QStandardItem(ucharToMACQstr(arp_p->etherhdr.SrcMAC)));
+                allinfo_model->setItem(line_temp,3,new QStandardItem(ucharToMACQstr(arp_p->etherhdr.DstMAC)));
+                allinfo_model->setItem(line_temp,4,new QStandardItem("ARP"));
+                allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(arp_p->pkthdr.caplen)));
+                allinfo_model->setItem(line_temp,6,new QStandardItem("ARP"));
+                line_temp++;
+                arp_p = arp_p->next;
+            }
+        }
+    }
+    else if(ui->else_op_btn->isChecked() == true){
+
+    }
+}
+
+void pkt_proc::on_assign_ip_btn_toggled(bool checked)
+{
+    if(checked == true)
+        ui->ipaddr_input->setEnabled(1);
+    else{
+        ui->ipaddr_input->setEnabled(0);
+        ui->ipaddr_input->clear();
+    }
+}
+
+void pkt_proc::on_assign_port_btn_toggled(bool checked)
+{
+    if(checked == true)
+        ui->port_input->setEnabled(1);
+    else{
+        ui->port_input->setEnabled(0);
+        ui->port_input->clear();
+    }
 }

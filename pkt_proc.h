@@ -7,6 +7,8 @@
 #include <QStandardItemModel>
 #include <QTableWidget>
 #include <QDebug>
+#include <fstream>
+#include <iostream>
 #include <time.h>
 #include "base_type.h"
 
@@ -34,6 +36,8 @@ public:
 private slots:
     void analyse_pkt();
 
+    void overview_init();
+
     void initWidget();
 
     void on_overviewTable_clicked(const QModelIndex &index);
@@ -41,6 +45,10 @@ private slots:
     void on_back_btn_clicked();
 
     void on_statistics_btn_clicked();
+
+    void on_assign_ip_btn_toggled(bool checked);
+
+    void on_assign_port_btn_toggled(bool checked);
 
 private:
     Ui::pkt_proc *ui;
