@@ -321,3 +321,12 @@ void DataChToCh(const uchar8_t *src_ch,uchar8_t *dst_ch,uint32_t len) //字符�
     }
     dst_ch[len] = '\0';
 }
+
+bool FindHttpStr(QString str)
+{
+    for(int i=0; i<(str.length()-4); i++){
+        if(str.mid(i,4) == "HTTP")
+            return true;
+    }
+    return false;
+}

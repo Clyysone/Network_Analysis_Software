@@ -101,7 +101,7 @@ typedef struct TCPHeader{
     uint32_t SeqNum; //序号(4字节)
     uint32_t AckNum; //确认号(4字节)
     uchar8_t HeaderLen; //数据报头的长度(4bit)+保留(4bit)(1字节)
-    uchar8_t Flags; //标识TCP不同的控制信息(1字节)
+    uchar8_t Flags; //保留(2bit)+(6bit)标识TCP不同的控制信息(1字节)
     uint16_t Window; //窗口大小(2字节)
     uint16_t Checksum; //校验和(2字节)
     uint16_t UrgentPoint; //紧急指针(2字节)
@@ -209,5 +209,6 @@ void TCPHdrCopy(TCPHeader_t *src_tcp,TCPHeader_t *dst_tcp); //TCP头的复制
 void UDPHdrCopy(UDPHeader_t *src_udp,UDPHeader_t *dst_udp); //UDP头的复制
 void ARPHdrCopy(ARPHeader_t *src_arp,ARPHeader_t *dst_arp); //ARP头的复制
 void DataChToCh(const uchar8_t *src_ch,uchar8_t *dst_ch,uint32_t len); //字符串的复制
+bool FindHttpStr(QString str);
 
 #endif // BASE_TYPE_H
