@@ -23,13 +23,17 @@
 #define ARP_REPLY 0x0002 //ARP reply
 #define ICMP_TYPE_REQUEST 8
 #define ICMP_TYPE_REPLY 0
+#define ICMP_TYPE_UNREACH 3
+#define ICMP_TYPE_TIMEOUT 11
 
 #define ETH_HLEN 14 //以太网头长度
 #define IP_HLEN 20  //IP头长度
 #define TCP_HLEN 20 //TCP头长度
 #define UDP_HLEN 8  //UDP头长度
-#define ICMP_HLEN 4 //ICMP头长度
+#define ICMP_HLEN 8 //ICMP头长度
 #define ARP_HLEN 8  //  ARP头长度
+#define DNS_HLEN 12 //DNS固定头部长度
+#define DHCP_HLEN 236 //DHCP固定头部长度
 #define PCAP_FILE_MAGIC_1 0xd4
 #define PCAP_FILE_MAGIC_2 0xc3
 #define PCAP_FILE_MAGIC_3 0xb2
@@ -129,6 +133,33 @@ typedef struct ICMPHeader{
     uint16_t Checksum; //校验和(2字节)
 }ICMPHeader_t;
 
+//ICMP报文(应答包)
+typedef struct ICMPType0{
+    uint16_t ICMPID;
+    uint16_t ICMPSeq;
+    char8_t ICMPData[1];
+}ICMPType0_t;
+
+//ICMP报文(目的地不可达)
+typedef struct ICMPType3{
+    uint16_t ICMPPmvoid;
+    uint16_t ICMPNextmtu;
+    char8_t ICMPData[1];
+}ICMPType3_t;
+
+//ICMP报文(请求包)
+typedef struct ICMPType8{
+    uint16_t ICMPID;
+    uint16_t ICMPSeq;
+    char8_t ICMPData[1];
+}ICMPType8_t;
+
+//ICMP报文(超时)
+typedef struct ICMPType11{
+    uint32_t ICMPVoid;
+    char8_t ICMPData[1];
+}ICMPType11_t;
+
 //ARP头
 typedef struct ARPHeader{
     uint16_t ARPHrd;
@@ -137,6 +168,34 @@ typedef struct ARPHeader{
     uchar8_t ARPPln;
     uint16_t ARPOP;
 }ARPHeader_t;
+
+//DNS报文头部(长度固定部分)
+typedef struct DNSHeader{
+    uint16_t ID;    //标识
+    uint16_t Flags; //标志，逐bit分析
+    uint16_t Qst_num; //问题数，通常为1
+    uint16_t Rsc_num; //资源记录数，查询报文中以下三个都为0
+    uint16_t Aut_num; //授权资料记录数
+    uint16_t Adt_num; //额外资源记录数
+}DNSHeader_t;
+
+//DHCP报文头部(长度固定部分)
+typedef struct DHCPHeader{
+    uchar8_t OP;    //报文类型，requset:1 reply:2
+    uchar8_t HrdType; //硬件类型代码 以太网:1
+    uchar8_t HrdLen; //硬件地址长度 以太网:6
+    uchar8_t Hops;  //跳数
+    uint32_t XID;  //事务ID 随机数
+    uint16_t Sec;   //秒数
+    uint16_t Flags; //标志，只使用最高位bit
+    uint32_t Ciaddr; //客户端IP地址
+    uint32_t Yiaddr;  //你的IP地址
+    uint32_t Siaddr;  //服务器IP地址
+    uint32_t Giaddr;  //网关IP地址
+    uchar8_t Chaddr[16]; //客户端硬件地址
+    uchar8_t Sname[64]; //服务器名
+    uchar8_t File[128]; //引导文件名
+}DHCPHeader_t;
 
 /*每个协议类型设置一个链表用来存储解析后的数据
  *  ARP ICMP TCP UDP
@@ -198,7 +257,7 @@ void data_ucharToHexstr(uchar *source , uint32_t length , char *str);
 void data_HexstrTochar(char *source , int length , char *dest_str);
 void _4No_pro(int num , char *no_now);
 QString ucharToHexQStr(uchar8_t ch);
-QString ushortToHexQStr(uint32_t ch);
+QString ushortToHexQStr(uint16_t ch);
 QString uintToIPQstr(uint32_t ip);
 QString ucharToMACQstr(uchar8_t *ether);
 void PcapHdrCopy(const struct pcap_pkthdr *src_pcappkt, pcapPktHeader_t *dst_pcappkt);
@@ -210,5 +269,7 @@ void UDPHdrCopy(UDPHeader_t *src_udp,UDPHeader_t *dst_udp); //UDP头的复制
 void ARPHdrCopy(ARPHeader_t *src_arp,ARPHeader_t *dst_arp); //ARP头的复制
 void DataChToCh(const uchar8_t *src_ch,uchar8_t *dst_ch,uint32_t len); //字符串的复制
 bool FindHttpStr(QString str);
+bool DNSJudgeFunc(UDPHeader_t udp_hdr);
+bool DHCPJudgeFunc(UDPHeader_t udp_hdr);
 
 #endif // BASE_TYPE_H

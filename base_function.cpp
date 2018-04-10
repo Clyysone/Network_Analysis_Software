@@ -221,7 +221,7 @@ QString ucharToHexQStr(uchar8_t ch)
     return str;
 }
 
-QString ushortToHexQStr(uint32_t ch)
+QString ushortToHexQStr(uint16_t ch)
 {
     uchar8_t byte[2];
     byte[0] = (uchar8_t)(ch>>8);
@@ -329,4 +329,21 @@ bool FindHttpStr(QString str)
             return true;
     }
     return false;
+}
+
+bool DNSJudgeFunc(UDPHeader_t udp_hdr)
+{
+    if(ntohs(udp_hdr.SrcPort) == 53 || ntohs(udp_hdr.DstPort) == 53)
+        return true;
+    else
+        return false;
+}
+
+bool DHCPJudgeFunc(UDPHeader_t udp_hdr)
+{
+    if((ntohs(udp_hdr.SrcPort) == 67 && ntohs(udp_hdr.DstPort) == 68) ||
+            (ntohs(udp_hdr.SrcPort) == 68 && ntohs(udp_hdr.DstPort) == 67))
+        return true;
+    else
+        return false;
 }

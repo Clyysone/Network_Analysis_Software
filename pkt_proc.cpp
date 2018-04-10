@@ -65,13 +65,23 @@ void pkt_proc::overview_init()
     ui->overviewTable->setColumnWidth(6,250);
 
     //显示到总览表(表1)
-    //ICMP TCP UDP ARP依次遍历后输出到表中
-    ICMP_List_t *icmp_p = Alist_Hdr.icmp_listhdr;
-    TCP_List_t *tcp_p = Alist_Hdr.tcp_listhdr;
-    UDP_List_t *udp_p = Alist_Hdr.udp_listhdr;
-    ARP_List_t *arp_p = Alist_Hdr.arp_listhdr;
+    /*ETHERNET
+     *    IP (0x0800)
+     *        ICMP (1)
+     *        TCP  (6)
+     *           HTTP (80)
+     *        UDP  (17)
+     *           DHCP (S:67, C:68)
+     *           DNS (53)
+     *    ARP (0x0806)
+    */
+    //ICMP , TCP(HTTP) , UDP(DHCP、DNS) , ARP依次遍历后输出到表中
+    ICMP_List_t *icmp_p = Alist_Hdr.icmp_listhdr; //初始的icmp链表头指针
+    TCP_List_t *tcp_p = Alist_Hdr.tcp_listhdr; //初始的tcp链表头指针
+    UDP_List_t *udp_p = Alist_Hdr.udp_listhdr; //初始的udp链表头指针
+    ARP_List_t *arp_p = Alist_Hdr.arp_listhdr; //初始的arp链表头指针
     double temp_t;
-    //ICMP
+    //ICMP依次输出到表1
     while(icmp_p){
         temp_t = (double)icmp_p->pkthdr.ts.ts_sec + ((double)(icmp_p->pkthdr.ts.ts_usec)/1000000);
         allinfo_model->setItem(icmp_p->Seq_num-1,0,new QStandardItem(QString::number(icmp_p->Seq_num)));
@@ -80,23 +90,61 @@ void pkt_proc::overview_init()
         allinfo_model->setItem(icmp_p->Seq_num-1,3,new QStandardItem(uintToIPQstr(icmp_p->iphdr.DstIP)));
         allinfo_model->setItem(icmp_p->Seq_num-1,4,new QStandardItem("ICMP"));
         allinfo_model->setItem(icmp_p->Seq_num-1,5,new QStandardItem(QString::number(icmp_p->pkthdr.caplen)));
-        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("ICMP"));
+        switch(icmp_p->icmphdr.ICMPType)
+        {
+            //能返回目的地，响应-应答包(0)
+            case ICMP_TYPE_REPLY:
+                ICMPType0_t *icmp0;
+                icmp0 = (ICMPType0_t *)(icmp_p->data);
+                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Echo reply.id:0x"+
+                                                                             ushortToHexQStr(ntohs(icmp0->ICMPID))+" seq:"+
+                                                                             ushortToHexQStr(ntohs(icmp0->ICMPSeq))));
+                break;
+            //不能到达目的地(3)
+            case ICMP_TYPE_UNREACH:
+                ICMPType3_t *icmp3;
+                icmp3 = (ICMPType3_t *)(icmp_p->data);
+                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable "+
+                                                                             ushortToHexQStr(ntohs(icmp3->ICMPPmvoid))+" "+
+                                                                             ushortToHexQStr(ntohs(icmp3->ICMPNextmtu))));
+                break;
+            //能到达目的地，响应-请求包(8)
+            case ICMP_TYPE_REQUEST:
+                ICMPType8_t *icmp8;
+                icmp8 = (ICMPType8_t *)(icmp_p->data);
+                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Echo request.id:0x"+
+                                                                             ushortToHexQStr(ntohs(icmp8->ICMPID))+" seq:"+
+                                                                             ushortToHexQStr(ntohs(icmp8->ICMPSeq))));
+                break;
+            //超时(11)
+            case ICMP_TYPE_TIMEOUT:
+                ICMPType11_t *icmp11;
+                icmp11 = (ICMPType11_t *)(icmp_p->data);
+                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Time Exceeded "+
+                                                                             QString::number(icmp11->ICMPVoid)));
+                break;
+            //其他类型
+            default:
+                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Cant be resolved.This type of ICMP is not supported"));
+                break;
+        }
         icmp_p = icmp_p->next;
     }
-    //TCP HTTP
+    //TCP(HTTP)依次输出到表1
     while(tcp_p){
         temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
         allinfo_model->setItem(tcp_p->Seq_num-1,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
         allinfo_model->setItem(tcp_p->Seq_num-1,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
         allinfo_model->setItem(tcp_p->Seq_num-1,2,new QStandardItem(uintToIPQstr(tcp_p->iphdr.SrcIP)));
         allinfo_model->setItem(tcp_p->Seq_num-1,3,new QStandardItem(uintToIPQstr(tcp_p->iphdr.DstIP)));
+        //判断是否是HTTP
         if(FindHttpStr(QString(QLatin1String((char *)tcp_p->data)))){
             allinfo_model->setItem(tcp_p->Seq_num-1,4,new QStandardItem("HTTP"));
             allinfo_model->setItem(tcp_p->Seq_num-1,6,new QStandardItem(QString(QLatin1String((char *)tcp_p->data))));
         }
         else{
             allinfo_model->setItem(tcp_p->Seq_num-1,4,new QStandardItem("TCP"));
-            allinfo_model->setItem(tcp_p->Seq_num-1,6,new QStandardItem(QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
+            allinfo_model->setItem(tcp_p->Seq_num-1,6,new QStandardItem("port:"+QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
                                                                         QString::number(ntohs(tcp_p->tcphdr.DstPort)) + "  Seq=" +
                                                                         QString::number(ntohl(tcp_p->tcphdr.SeqNum)) + "  Ack=" +
                                                                         QString::number(ntohl(tcp_p->tcphdr.AckNum)) + "  Win=" +
@@ -105,21 +153,37 @@ void pkt_proc::overview_init()
         allinfo_model->setItem(tcp_p->Seq_num-1,5,new QStandardItem(QString::number(tcp_p->pkthdr.caplen)));
         tcp_p = tcp_p->next;
     }
-    //UDP
+    //UDP(DNS DHCP)依次输出到表1
     while(udp_p){
         temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
         allinfo_model->setItem(udp_p->Seq_num-1,0,new QStandardItem(QString::number(udp_p->Seq_num)));
         allinfo_model->setItem(udp_p->Seq_num-1,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
         allinfo_model->setItem(udp_p->Seq_num-1,2,new QStandardItem(uintToIPQstr(udp_p->iphdr.SrcIP)));
         allinfo_model->setItem(udp_p->Seq_num-1,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
-        allinfo_model->setItem(udp_p->Seq_num-1,4,new QStandardItem("UDP"));
         allinfo_model->setItem(udp_p->Seq_num-1,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
-        allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
-                                                                  QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
-                                                                  QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
+        //判断是否是DNS
+        if(DNSJudgeFunc(udp_p->udphdr)){
+            DNSHeader_t *dns;
+            dns = (DNSHeader_t *)(udp_p->data);
+            allinfo_model->setItem(udp_p->Seq_num-1,4,new QStandardItem("DNS"));
+            allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem("DNS")); //++++++++++++
+        }
+        //判断是否是DHCP
+        else if(DHCPJudgeFunc(udp_p->udphdr)){
+            DHCPHeader_t *dhcp;
+            dhcp = (DHCPHeader_t *)(udp_p->data);
+            allinfo_model->setItem(udp_p->Seq_num-1,4,new QStandardItem("DHCP"));
+            allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem("DHCP"));//++++++++++++
+        }
+        else{
+            allinfo_model->setItem(udp_p->Seq_num-1,4,new QStandardItem("UDP"));
+            allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem("port:"+QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                                                                      QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
+                                                                      QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
+        }
         udp_p = udp_p->next;
     }
-    //ARP
+    //ARP依次输出到表1
     while(arp_p){
         temp_t = (double)arp_p->pkthdr.ts.ts_sec + ((double)(arp_p->pkthdr.ts.ts_usec)/1000000);
         allinfo_model->setItem(arp_p->Seq_num-1,0,new QStandardItem(QString::number(arp_p->Seq_num)));
@@ -134,7 +198,8 @@ void pkt_proc::overview_init()
         }
         else if (ntohs(arp_p->arphdr.ARPOP) == 2){    //应答
             allinfo_model->setItem(arp_p->Seq_num-1,6,new QStandardItem("To " + uintToIPQstr(*((uint *)(arp_p->data + 16)))+" reply:"+
-                                                                        uintToIPQstr(*((uint *)(arp_p->data + 6)))+ "⇄" +ucharToMACQstr(arp_p->data)));
+                                                                        uintToIPQstr(*((uint *)(arp_p->data + 6)))+
+                                                                        "⇄" +ucharToMACQstr(arp_p->data)));
         }
         arp_p = arp_p->next;
     }
@@ -152,7 +217,7 @@ void pkt_proc::initWidget()
         ui->contentTable->setColumnWidth(i,34);
     ui->contentTable->setColumnWidth(16,200);
 
-    //显示统计表(表4)
+    //显示统计表初始(表4)
     ui->statistics_browser->clear();
     ui->statistics_browser->insertPlainText("► Pcap文件信息：");
     ui->statistics_browser->insertPlainText("\n        ◇ 文件名称：" + analyse_filename);
@@ -180,26 +245,38 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     content_model->removeRows(0,content_model->rowCount());
     //清除详细信息显示框
     ui->headerTable->clear();
-    /*分析统计部分
-     * Ether
-     *  IP
-     *    ICMP
-     *    TCP
-     *      HTTP
-     *    UDP
-     *  ARP
-     */
+    /*数据显示和分析统计部分（表2 和 表3）
+     *ETHERNET
+     *    IP
+     *        ICMP
+     *        TCP
+     *           HTTP
+     *        UDP
+     *           DHCP
+     *           DNS
+     *    ARP
+    */
     struct pcapPktHeader *pcappkth = NULL;
-    struct EtherHeader *ethernet;
-    struct IPHeader *ip;
-    struct ICMPHeader *icmp;
-    struct TCPHeader *tcp;
-    struct UDPHeader *udp;
-    struct ARPHeader *arp;
+    struct EtherHeader *ethernet  = NULL;
+    struct IPHeader *ip = NULL;
+    struct ICMPHeader *icmp = NULL;
+    struct TCPHeader *tcp = NULL;
+    struct UDPHeader *udp = NULL;
+    struct DNSHeader *dns = NULL;
+    struct DHCPHeader *dhcp = NULL;
+    struct ARPHeader *arp = NULL;
+    uint32_t etheroff = ETH_HLEN;
+    uint32_t ipoff = ETH_HLEN+IP_HLEN;
+    uint32_t icmpoff = ETH_HLEN+IP_HLEN+ICMP_HLEN;
+    uint32_t tcpoff = ETH_HLEN+IP_HLEN+TCP_HLEN;
+    uint32_t udpoff = ETH_HLEN+IP_HLEN+UDP_HLEN;
+    uint32_t dnsoff = ETH_HLEN+IP_HLEN+UDP_HLEN+DNS_HLEN;
+    uint32_t dhcpoff = ETH_HLEN+IP_HLEN+UDP_HLEN+DHCP_HLEN;
+    uint32_t arpoff = ETH_HLEN+ARP_HLEN;
     //首先遍历得到对应的数据包结构体指针
     uint32_t pkt_length = 0; //包的字节数
-    uchar8_t *pkt_char;
-    uint32_t content_row; // 显示行数，每16字节一行
+    uchar8_t *pkt_char = NULL;
+    uint32_t content_row = 0; // 显示行数，每16字节一行
     QString pro_str = allinfo_model->data(allinfo_model->index(index.row(),4)).toString();
     int cur_seq = allinfo_model->data(allinfo_model->index(index.row(),0)).toInt();
     if(pro_str == "ICMP"){
@@ -212,9 +289,9 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
         }
         pkt_char = (uchar8_t *)malloc(temp_icmp_p->pkthdr.caplen);
         DataChToCh((const uchar8_t *)&(temp_icmp_p->etherhdr), pkt_char, ETH_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_icmp_p->iphdr), pkt_char+ETH_HLEN, IP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_icmp_p->icmphdr), pkt_char+ETH_HLEN+IP_HLEN, ICMP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_icmp_p->data), pkt_char+ETH_HLEN+IP_HLEN+ICMP_HLEN, temp_icmp_p->pkthdr.caplen-ETH_HLEN-IP_HLEN-ICMP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_icmp_p->iphdr), pkt_char+etheroff, IP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_icmp_p->icmphdr), pkt_char+ipoff, ICMP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_icmp_p->data), pkt_char+icmpoff, temp_icmp_p->pkthdr.caplen-icmpoff);
         pcappkth = &(temp_icmp_p->pkthdr);
         ethernet = &(temp_icmp_p->etherhdr);
         ip = &(temp_icmp_p->iphdr);
@@ -230,15 +307,15 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
         }
         pkt_char = (uchar8_t *)malloc(temp_tcp_p->pkthdr.caplen);
         DataChToCh((const uchar8_t *)&(temp_tcp_p->etherhdr), pkt_char, ETH_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_tcp_p->iphdr), pkt_char+ETH_HLEN, IP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_tcp_p->tcphdr), pkt_char+ETH_HLEN+IP_HLEN, TCP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_tcp_p->data), pkt_char+ETH_HLEN+IP_HLEN+TCP_HLEN, temp_tcp_p->pkthdr.caplen-ETH_HLEN-IP_HLEN-TCP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_tcp_p->iphdr), pkt_char+etheroff, IP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_tcp_p->tcphdr), pkt_char+ipoff, TCP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_tcp_p->data), pkt_char+tcpoff, temp_tcp_p->pkthdr.caplen-tcpoff);
         pcappkth = &(temp_tcp_p->pkthdr);
         ethernet = &(temp_tcp_p->etherhdr);
         ip = &(temp_tcp_p->iphdr);
         tcp = &(temp_tcp_p->tcphdr);
     }
-    else if(pro_str == "UDP"){
+    else if(pro_str == "UDP" || pro_str == "DNS" || pro_str == "DHCP"){
         UDP_List_t *temp_udp_p = Alist_Hdr.udp_listhdr;
         while(temp_udp_p){
             if(temp_udp_p->Seq_num == cur_seq)
@@ -248,9 +325,9 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
         }
         pkt_char = (uchar8_t *)malloc(temp_udp_p->pkthdr.caplen);
         DataChToCh((const uchar8_t *)&(temp_udp_p->etherhdr), pkt_char, ETH_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_udp_p->iphdr), pkt_char+ETH_HLEN, IP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_udp_p->udphdr), pkt_char+ETH_HLEN+IP_HLEN, UDP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_udp_p->data), pkt_char+ETH_HLEN+IP_HLEN+UDP_HLEN, temp_udp_p->pkthdr.caplen-ETH_HLEN-IP_HLEN-UDP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_udp_p->iphdr), pkt_char+etheroff, IP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_udp_p->udphdr), pkt_char+ipoff, UDP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_udp_p->data), pkt_char+udpoff, temp_udp_p->pkthdr.caplen-udpoff);
         pcappkth = &(temp_udp_p->pkthdr);
         ethernet = &(temp_udp_p->etherhdr);
         ip = &(temp_udp_p->iphdr);
@@ -266,14 +343,26 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
         }
         pkt_char = (uchar8_t *)malloc(temp_arp_p->pkthdr.caplen);
         DataChToCh((const uchar8_t *)&(temp_arp_p->etherhdr), pkt_char, ETH_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_arp_p->arphdr), pkt_char+ETH_HLEN, ARP_HLEN);
-        DataChToCh((const uchar8_t *)&(temp_arp_p->data), pkt_char+ETH_HLEN+ARP_HLEN, temp_arp_p->pkthdr.caplen-ETH_HLEN-ARP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_arp_p->arphdr), pkt_char+etheroff, ARP_HLEN);
+        DataChToCh((const uchar8_t *)&(temp_arp_p->data), pkt_char+arpoff, temp_arp_p->pkthdr.caplen-arpoff);
         pcappkth = &(temp_arp_p->pkthdr);
         ethernet = &(temp_arp_p->etherhdr);
         arp = &(temp_arp_p->arphdr);
     }
-    else return;
-    //数据包内容的二进制和ascii码显示
+    else{
+
+    }
+    //数据包内容的二进制和ascii码显示（表2）
+    /*ETHERNET
+     *    IP
+     *        ICMP
+     *        TCP
+     *           HTTP
+     *        UDP
+     *           DHCP
+     *           DNS
+     *    ARP
+    */
     pkt_length = pcappkth->caplen; //包的字节数
     if(pkt_length%16 == 0 )
         content_row = pkt_length/16;
@@ -339,6 +428,16 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
     }
 
     //右侧详细解析信息显示(表3)
+    /*ETHERNET
+     *    IP
+     *        ICMP
+     *        TCP
+     *           HTTP
+     *        UDP
+     *           DHCP
+     *           DNS
+     *    ARP
+    */
     //PCAP包头
     ui->headerTable->insertPlainText("► pcap数据包头：");
     ui->headerTable->insertPlainText("\n        ◇ 抓去数据包长度：");
@@ -386,17 +485,51 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
             {
                 //ICMP IP头中类型码为 1
                 case IPT_ICMP:
-                    //IP数据报头
+                    ui->headerTable->insertPlainText("\n► ICMP报文头（Datagram)");                                               //++++++++++++
                     switch(icmp->ICMPType)
                     {
-                        //请求类型 ICMP头中类型码为 8
-                        case ICMP_TYPE_REQUEST:
-                            break;
-                        //应答类型 ICMP头中类型码为 0
+                        //能返回目的地，响应-应答包(0)
                         case ICMP_TYPE_REPLY:
+                            ICMPType0_t *icmp0;
+                            icmp0 = (ICMPType0_t *)(pkt_char+icmpoff);
+                            ui->headerTable->insertPlainText("\n        ◇ 类型：响应-应答包（0）");
+                            ui->headerTable->insertPlainText("\n        ◇ 代码："+QString::number(icmp->ICMPCode));
+                            ui->headerTable->insertPlainText("\n        ◇ 校验和：0x"+ushortToHexQStr(ntohs(icmp->Checksum)));
+                            ui->headerTable->insertPlainText("\n        ◇ id：0x"+ushortToHexQStr(ntohs(icmp0->ICMPID)));
+                            ui->headerTable->insertPlainText("\n        ◇ seq："+ushortToHexQStr(ntohs(icmp0->ICMPSeq)));
                             break;
-                        //其他类型 目标不可达、超时、源抑制、时间戳请求等
+                        //不能到达目的地(3)
+                        case ICMP_TYPE_UNREACH:
+                            ICMPType3_t *icmp3;
+                            icmp3 = (ICMPType3_t *)(pkt_char+icmpoff);
+                            ui->headerTable->insertPlainText("\n        ◇ 类型：目的地不可达（3）");
+                            ui->headerTable->insertPlainText("\n        ◇ 代码："+QString::number(icmp->ICMPCode));
+                            ui->headerTable->insertPlainText("\n        ◇ 校验和：0x"+ushortToHexQStr(ntohs(icmp->Checksum)));
+                            ui->headerTable->insertPlainText("\n        ◇ ICMPPmvoid："+ushortToHexQStr(ntohs(icmp3->ICMPPmvoid)));
+                            ui->headerTable->insertPlainText("\n        ◇ ICMPNextmtu："+ushortToHexQStr(ntohs(icmp3->ICMPNextmtu)));
+                            break;
+                        //能到达目的地，响应-请求包(8)
+                        case ICMP_TYPE_REQUEST:
+                            ICMPType8_t *icmp8;
+                            icmp8 = (ICMPType8_t *)(pkt_char+icmpoff);
+                            ui->headerTable->insertPlainText("\n        ◇ 类型：响应-请求包（8）");
+                            ui->headerTable->insertPlainText("\n        ◇ 代码："+QString::number(icmp->ICMPCode));
+                            ui->headerTable->insertPlainText("\n        ◇ 校验和：0x"+ushortToHexQStr(ntohs(icmp->Checksum)));
+                            ui->headerTable->insertPlainText("\n        ◇ id：0x"+ushortToHexQStr(ntohs(icmp8->ICMPID)));
+                            ui->headerTable->insertPlainText("\n        ◇ seq："+ushortToHexQStr(ntohs(icmp8->ICMPSeq)));
+                            break;
+                        //超时(11)
+                        case ICMP_TYPE_TIMEOUT:
+                            ICMPType11_t *icmp11;
+                            icmp11 = (ICMPType11_t *)(pkt_char+icmpoff);
+                            ui->headerTable->insertPlainText("\n        ◇ 类型：请求超时（11）");
+                            ui->headerTable->insertPlainText("\n        ◇ 代码："+QString::number(icmp->ICMPCode));
+                            ui->headerTable->insertPlainText("\n        ◇ 校验和：0x"+ushortToHexQStr(ntohs(icmp->Checksum)));
+                            ui->headerTable->insertPlainText("\n        ◇ ICMPVoid："+QString::number(icmp11->ICMPVoid));
+                            break;
+                        //其他类型 源抑制、时间戳请求等
                         default:
+                            ui->headerTable->insertPlainText("\n        ◇ 暂无此类型ICMP数据的解析功能");
                             break;
                     }
                     break;
@@ -434,10 +567,29 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
                     ui->headerTable->insertPlainText("0x"+ushortToHexQStr(ntohs(tcp->Checksum)));
                     ui->headerTable->insertPlainText("\n        ◇ 紧急指针：");
                     ui->headerTable->insertPlainText(QString::number(ntohs(tcp->UrgentPoint)));
-                    //HTTP
+                    //HTTP报文
                     if(pro_str == "HTTP"){
-                        ui->headerTable->insertPlainText("\n► HTTP报文（Message)\n");
-                        ui->headerTable->insertPlainText(QString(QLatin1String((char *)(pkt_char+ETH_HLEN+IP_HLEN+TCP_HLEN))));
+                        ui->headerTable->insertPlainText("\n► HTTP报文（Message)\n        ◇ ");
+                        for(uint32_t i=0; i<(pkt_length-tcpoff); i++){
+                            if(*(pkt_char+tcpoff+i) == 10 &&
+                                 i != (pkt_length-tcpoff-1) &&
+                                 i != (pkt_length-tcpoff-3))
+                                ui->headerTable->insertPlainText("        ◇ ");
+                            else{
+                                ui->headerTable->insertPlainText(QString(QLatin1Char(*(pkt_char+tcpoff+i))));
+                            }
+                        }
+                    }
+                    //其他TCP报文
+                    else{
+                        ui->headerTable->insertPlainText("\n► 应用层报文（Message)");
+                        ui->headerTable->insertPlainText("\n        ◇ 十六进制数据（"+
+                                                         QString::number(pkt_length-tcpoff)+"字节）：");
+                        for(uint32_t i=0; i<(pkt_length-tcpoff); i++){
+                            if(i%8 == 0)
+                                ui->headerTable->insertPlainText("\n                    ");
+                            ui->headerTable->insertPlainText(ucharToHexQStr(*(pkt_char+tcpoff+i))+" ");
+                        }
                     }
                     break;
                 //UDP IP头中类型码为 17
@@ -452,14 +604,71 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
                     ui->headerTable->insertPlainText(QString::number(ntohs(udp->SegLen)));
                     ui->headerTable->insertPlainText("\n        ◇ 校验和：");
                     ui->headerTable->insertPlainText("0x"+ushortToHexQStr(ntohs(udp->Checksum)));
-                    //报文
-                    ui->headerTable->insertPlainText("\n► 报文数据（Message)");
-                    ui->headerTable->insertPlainText("\n        ◇ 十六进制数据（"+
-                                                     QString::number(ntohs(udp->SegLen)-UDP_HLEN)+"字节）：");
-                    for(int i=0; i<(ntohs(udp->SegLen)-UDP_HLEN); i++){
-                        if(i%8 == 0)
-                            ui->headerTable->insertPlainText("\n                    ");
-                        ui->headerTable->insertPlainText(ucharToHexQStr(*(pkt_char+ETH_HLEN+IP_HLEN+UDP_HLEN+i))+" ");
+                    //DNS报文
+                    if(pro_str == "DNS"){
+                        dns = (struct DNSHeader *)(pkt_char+udpoff);
+                        ui->headerTable->insertPlainText("\n► DNS报文（Message)");
+                        ui->headerTable->insertPlainText("\n        ◇ 标识：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dns->ID)));
+                        ui->headerTable->insertPlainText("\n        ◇ 标志：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dns->Flags)));
+                        ui->headerTable->insertPlainText("\n        ◇ 问题数：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dns->Qst_num)));
+                        ui->headerTable->insertPlainText("\n        ◇ 资源记录数：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dns->Rsc_num)));
+                        ui->headerTable->insertPlainText("\n        ◇ 授权资源记录数：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dns->Aut_num)));
+                        ui->headerTable->insertPlainText("\n        ◇ 额外资源记录数：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dns->Adt_num)));
+                        ui->headerTable->insertPlainText("\n        ◇ 查询问题：");
+                        ui->headerTable->insertPlainText("\n        ◇ 回答：");
+                        ui->headerTable->insertPlainText(QString(QLatin1String((char *)(pkt_char+dnsoff))));
+                    }
+                    //DHCP报文
+                    else if(pro_str == "DHCP"){
+                        dhcp = (struct DHCPHeader *)(pkt_char+udpoff);
+                        ui->headerTable->insertPlainText("\n► DHCP报文（Message)");
+                        ui->headerTable->insertPlainText("\n        ◇ 操作码：");
+                        ui->headerTable->insertPlainText(QString::number(dhcp->OP));
+                        ui->headerTable->insertPlainText("\n        ◇ 硬件类型：");
+                        ui->headerTable->insertPlainText(QString::number(dhcp->HrdType));
+                        ui->headerTable->insertPlainText("\n        ◇ 硬件长度：");
+                        ui->headerTable->insertPlainText(QString::number(dhcp->HrdLen));
+                        ui->headerTable->insertPlainText("\n        ◇ 跳数：");
+                        ui->headerTable->insertPlainText(QString::number(dhcp->Hops));
+                        ui->headerTable->insertPlainText("\n        ◇ 事务ID：");
+                        ui->headerTable->insertPlainText(QString::number(ntohl(dhcp->XID)));
+                        ui->headerTable->insertPlainText("\n        ◇ 秒数：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dhcp->Sec)));
+                        ui->headerTable->insertPlainText("\n        ◇ 标志：");
+                        ui->headerTable->insertPlainText(QString::number(ntohs(dhcp->Flags)));
+                        ui->headerTable->insertPlainText("\n        ◇ 客户端IP地址：");
+                        ui->headerTable->insertPlainText(uintToIPQstr(dhcp->Ciaddr));
+                        ui->headerTable->insertPlainText("\n        ◇ 你的IP地址：");
+                        ui->headerTable->insertPlainText(uintToIPQstr(dhcp->Yiaddr));
+                        ui->headerTable->insertPlainText("\n        ◇ 服务器IP地址：");
+                        ui->headerTable->insertPlainText(uintToIPQstr(dhcp->Siaddr));
+                        ui->headerTable->insertPlainText("\n        ◇ 网关IP地址：");
+                        ui->headerTable->insertPlainText(uintToIPQstr(dhcp->Giaddr));
+                        ui->headerTable->insertPlainText("\n        ◇ 客户端硬件地址：");
+                        ui->headerTable->insertPlainText(ucharToMACQstr(dhcp->Chaddr));
+                        ui->headerTable->insertPlainText("\n        ◇ 服务器名：");
+                        ui->headerTable->insertPlainText(QString(QLatin1String((char *)dhcp->Sname)));
+                        ui->headerTable->insertPlainText("\n        ◇ 引导文件名：");
+                        ui->headerTable->insertPlainText(QString(QLatin1String((char *)dhcp->File)));
+                        ui->headerTable->insertPlainText("\n        ◇ 选项：");
+                        ui->headerTable->insertPlainText(QString(QLatin1String((char *)(pkt_char+dhcpoff))));
+                    }
+                    //其他UDP报文
+                    else{
+                        ui->headerTable->insertPlainText("\n► 应用层报文（Message)");
+                        ui->headerTable->insertPlainText("\n        ◇ 十六进制数据（"+
+                                                         QString::number(pkt_length-udpoff)+"字节）：");
+                        for(uint32_t i=0; i<(pkt_length-udpoff); i++){
+                            if(i%8 == 0)
+                                ui->headerTable->insertPlainText("\n                    ");
+                            ui->headerTable->insertPlainText(ucharToHexQStr(*(pkt_char+udpoff+i))+" ");
+                        }
                     }
                     break;
                 default:
@@ -475,25 +684,23 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
             ui->headerTable->insertPlainText("\n        ◇ 硬件地址长度：6字节");
             ui->headerTable->insertPlainText("\n        ◇ 协议地址长度：4字节");
             ui->headerTable->insertPlainText("\n        ◇ 操作类型：" + QString::number(ntohs(arp->ARPOP)));
-            if(ntohs(arp->ARPOP) == 1)
-                ui->headerTable->insertPlainText("（请求）");
-            else if(ntohs(arp->ARPOP) == 2)
-                ui->headerTable->insertPlainText("（应答）");
-            ui->headerTable->insertPlainText("\n        ◇ 源MAC地址：" + ucharToMACQstr(pkt_char+ETH_HLEN+ARP_HLEN));
-            ui->headerTable->insertPlainText("\n        ◇ 源IP地址：" + uintToIPQstr(*((uint *)(pkt_char+ETH_HLEN+ARP_HLEN+6))));
-            ui->headerTable->insertPlainText("\n        ◇ 目的MAC地址：" + ucharToMACQstr(pkt_char+ETH_HLEN+ARP_HLEN+10));
-            ui->headerTable->insertPlainText("\n        ◇ 目的IP地址：" + uintToIPQstr(*((uint *)(pkt_char+ETH_HLEN+ARP_HLEN+16))));
-            switch(arp->ARPOP)
+            switch(ntohs(arp->ARPOP))
             {
                 //ARP请求 值为1
                 case ARP_REQUSET:
+                    ui->headerTable->insertPlainText("（请求）");
                     break;
                 //ARP应答 值为2
                 case ARP_REPLY:
+                    ui->headerTable->insertPlainText("（应答）");
                     break;
                 default:
                     break;
             }
+            ui->headerTable->insertPlainText("\n        ◇ 源MAC地址：" + ucharToMACQstr(pkt_char+arpoff));
+            ui->headerTable->insertPlainText("\n        ◇ 源IP地址：" + uintToIPQstr(*((uint *)(pkt_char+arpoff+6))));
+            ui->headerTable->insertPlainText("\n        ◇ 目的MAC地址：" + ucharToMACQstr(pkt_char+arpoff+10));
+            ui->headerTable->insertPlainText("\n        ◇ 目的IP地址：" + uintToIPQstr(*((uint *)(pkt_char+arpoff+16))));
             break;
         //其他类型RARP、VLAN等
         default:
@@ -522,7 +729,7 @@ void pkt_proc::on_statistics_btn_clicked()
     UDP_List_t *udp_p = Alist_Hdr.udp_listhdr;
     ARP_List_t *arp_p = Alist_Hdr.arp_listhdr;
     double temp_t;
-    //protocol
+    //过滤
     //All____
     if(ui->all_op_btn->isChecked() == true){
         overview_init();
@@ -587,7 +794,7 @@ void pkt_proc::on_statistics_btn_clicked()
             }
         }
     }
-    //TCP____
+    //TCP____//++++++++++++
     else if(ui->tcp_op_btn->isChecked() == true || ui->http_op_btn->isChecked() == true){
         QString temp_ipstr = NULL;
         QString temp_portstr = NULL;
@@ -607,8 +814,10 @@ void pkt_proc::on_statistics_btn_clicked()
                     mybox->setText("请输入端口号");
                     break;
                 }
-                if((uintToIPQstr(tcp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(tcp_p->iphdr.DstIP) == temp_ipstr)
-                        && (QString::number(ntohs(tcp_p->tcphdr.SrcPort)) == temp_portstr || QString::number(ntohs(tcp_p->tcphdr.DstPort)) == temp_portstr)){
+                if((uintToIPQstr(tcp_p->iphdr.SrcIP) == temp_ipstr ||
+                    uintToIPQstr(tcp_p->iphdr.DstIP) == temp_ipstr) &&
+                   (QString::number(ntohs(tcp_p->tcphdr.SrcPort)) == temp_portstr ||
+                    QString::number(ntohs(tcp_p->tcphdr.DstPort)) == temp_portstr)){
                     temp_t = (double)tcp_p->pkthdr.ts.ts_sec + ((double)(tcp_p->pkthdr.ts.ts_usec)/1000000);
                     allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(tcp_p->Seq_num)));
                     allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
@@ -621,7 +830,7 @@ void pkt_proc::on_statistics_btn_clicked()
                     }
                     else{
                         allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
-                        allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
+                        allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
                                                                                     QString::number(ntohs(tcp_p->tcphdr.DstPort)) + "  Seq=" +
                                                                                     QString::number(ntohl(tcp_p->tcphdr.SeqNum)) + "  Ack=" +
                                                                                     QString::number(ntohl(tcp_p->tcphdr.AckNum)) + "  Win=" +
@@ -652,7 +861,7 @@ void pkt_proc::on_statistics_btn_clicked()
                     }
                     else{
                         allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
-                        allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
+                        allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
                                                                                     QString::number(ntohs(tcp_p->tcphdr.DstPort)) + "  Seq=" +
                                                                                     QString::number(ntohl(tcp_p->tcphdr.SeqNum)) + "  Ack=" +
                                                                                     QString::number(ntohl(tcp_p->tcphdr.AckNum)) + "  Win=" +
@@ -683,7 +892,7 @@ void pkt_proc::on_statistics_btn_clicked()
                     }
                     else{
                         allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
-                        allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
+                        allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
                                                                                     QString::number(ntohs(tcp_p->tcphdr.DstPort)) + "  Seq=" +
                                                                                     QString::number(ntohl(tcp_p->tcphdr.SeqNum)) + "  Ack=" +
                                                                                     QString::number(ntohl(tcp_p->tcphdr.AckNum)) + "  Win=" +
@@ -707,7 +916,7 @@ void pkt_proc::on_statistics_btn_clicked()
                 }
                 else{
                     allinfo_model->setItem(line_temp,4,new QStandardItem("TCP"));
-                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(tcp_p->tcphdr.SrcPort)) + " → " +
                                                                                 QString::number(ntohs(tcp_p->tcphdr.DstPort)) + "  Seq=" +
                                                                                 QString::number(ntohl(tcp_p->tcphdr.SeqNum)) + "  Ack=" +
                                                                                 QString::number(ntohl(tcp_p->tcphdr.AckNum)) + "  Win=" +
@@ -718,7 +927,7 @@ void pkt_proc::on_statistics_btn_clicked()
             }
         }
     }
-    //UDP____
+    //UDP____//++++++++++++
     else if(ui->udp_op_btn->isChecked() == true){
         QString temp_ipstr = NULL;
         QString temp_portstr = NULL;
@@ -738,8 +947,10 @@ void pkt_proc::on_statistics_btn_clicked()
                     mybox->setText("请输入端口号");
                     break;
                 }
-                if((uintToIPQstr(udp_p->iphdr.SrcIP) == temp_ipstr || uintToIPQstr(udp_p->iphdr.DstIP) == temp_ipstr)
-                        && (QString::number(ntohs(udp_p->udphdr.SrcPort)) == temp_portstr || QString::number(ntohs(udp_p->udphdr.DstPort)) == temp_portstr)){
+                if((uintToIPQstr(udp_p->iphdr.SrcIP) == temp_ipstr ||
+                    uintToIPQstr(udp_p->iphdr.DstIP) == temp_ipstr) &&
+                   (QString::number(ntohs(udp_p->udphdr.SrcPort)) == temp_portstr ||
+                    QString::number(ntohs(udp_p->udphdr.DstPort)) == temp_portstr)){
                     temp_t = (double)udp_p->pkthdr.ts.ts_sec + ((double)(udp_p->pkthdr.ts.ts_usec)/1000000);
                     allinfo_model->setItem(line_temp,0,new QStandardItem(QString::number(udp_p->Seq_num)));
                     allinfo_model->setItem(line_temp,1,new QStandardItem(QString::number(temp_t-zero_t,'f',6)));
@@ -747,7 +958,7 @@ void pkt_proc::on_statistics_btn_clicked()
                     allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
                     allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
                     allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
-                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
                                                                          QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
                                                                          QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
                     line_temp++;
@@ -770,7 +981,7 @@ void pkt_proc::on_statistics_btn_clicked()
                     allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
                     allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
                     allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
-                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
                                                                          QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
                                                                          QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
                 line_temp++;
@@ -793,7 +1004,7 @@ void pkt_proc::on_statistics_btn_clicked()
                     allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
                     allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
                     allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
-                    allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                    allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
                                                                          QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
                                                                          QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
                     line_temp++;
@@ -809,7 +1020,7 @@ void pkt_proc::on_statistics_btn_clicked()
                 allinfo_model->setItem(line_temp,3,new QStandardItem(uintToIPQstr(udp_p->iphdr.DstIP)));
                 allinfo_model->setItem(line_temp,4,new QStandardItem("UDP"));
                 allinfo_model->setItem(line_temp,5,new QStandardItem(QString::number(udp_p->pkthdr.caplen)));
-                allinfo_model->setItem(line_temp,6,new QStandardItem(QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
+                allinfo_model->setItem(line_temp,6,new QStandardItem("port:"+QString::number(ntohs(udp_p->udphdr.SrcPort))+" → " +
                                                                      QString::number(ntohs(udp_p->udphdr.DstPort))+"  Len=" +
                                                                      QString::number(ntohs(udp_p->udphdr.SegLen)-UDP_HLEN)));
                 line_temp++;
@@ -851,7 +1062,8 @@ void pkt_proc::on_statistics_btn_clicked()
                 }
                 else if (ntohs(arp_p->arphdr.ARPOP) == 2){    //应答
                     allinfo_model->setItem(line_temp,6,new QStandardItem("To " + uintToIPQstr(*((uint *)(arp_p->data + 16)))+" reply:"+
-                                                                                uintToIPQstr(*((uint *)(arp_p->data + 6)))+ "⇄" +ucharToMACQstr(arp_p->data)));
+                                                                          uintToIPQstr(*((uint *)(arp_p->data + 6)))+
+                                                                         "⇄" +ucharToMACQstr(arp_p->data)));
                 }
                 line_temp++;
             }
@@ -859,6 +1071,19 @@ void pkt_proc::on_statistics_btn_clicked()
         }
     }
 
+    //显示总体统计信息（表4）
+    /*ETHERNET
+     *    IP
+     *        ICMP
+     *        IGMP
+     *        TCP
+     *           HTTP
+     *        UDP
+     *           DHCP
+     *           DNS
+     *    ARP
+    */
+    //++++++++++++
 }
 
 void pkt_proc::on_assign_ip_btn_toggled(bool checked)
