@@ -83,7 +83,7 @@ void pcap_callback_t(uchar8_t *argument, const struct pcap_pkthdr* pkt_header, c
                     EtherHdrCopy(ethernet,&(temp_tcp->etherhdr));
                     IPHdrCopy(ip,&(temp_tcp->iphdr));
                     TCPHdrCopy(tcp,&(temp_tcp->tcphdr));
-                    DataChToCh(pkt_content+ETH_HLEN+IP_HLEN+TCP_HLEN,temp_tcp->data,(pkt_header->caplen)-(ETH_HLEN+IP_HLEN+TCP_HLEN));
+                    DataChToCh(pkt_content+ETH_HLEN+IP_HLEN+(temp_tcp->tcphdr.HeaderLen)/4,temp_tcp->data,(pkt_header->caplen)-(ETH_HLEN+IP_HLEN+(temp_tcp->tcphdr.HeaderLen)/4));
                     temp_tcp->Seq_num = line+1;
                     flag_tcp = 0;
                     break;

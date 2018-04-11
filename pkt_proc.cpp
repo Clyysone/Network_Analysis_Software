@@ -62,7 +62,7 @@ void pkt_proc::overview_init()
     ui->overviewTable->setColumnWidth(3,130);
     ui->overviewTable->setColumnWidth(4,50);
     ui->overviewTable->setColumnWidth(5,55);
-    ui->overviewTable->setColumnWidth(6,250);
+    ui->overviewTable->setColumnWidth(6,290);
 
     //显示到总览表(表1)
     /*ETHERNET
@@ -104,9 +104,27 @@ void pkt_proc::overview_init()
             case ICMP_TYPE_UNREACH:
                 ICMPType3_t *icmp3;
                 icmp3 = (ICMPType3_t *)(icmp_p->data);
-                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable "+
-                                                                             ushortToHexQStr(ntohs(icmp3->ICMPPmvoid))+" "+
-                                                                             ushortToHexQStr(ntohs(icmp3->ICMPNextmtu))));
+                switch(icmp_p->icmphdr.ICMPCode){
+                    //网络不可达
+                    case 0:
+                        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable(Net unreachable) "));
+                        break;
+                    //主机不可达
+                    case 1:
+                        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable(Host unreachable) "));
+                        break;
+                    //协议不可达
+                    case 2:
+                        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable(Protocol unreachable) "));
+                        break;
+                    //端口不可达
+                    case 3:
+                        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable(Port unreachable) "));
+                        break;
+                    default:
+                        allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Destination unreachable "));
+                        break;
+                }
                 break;
             //能到达目的地，响应-请求包(8)
             case ICMP_TYPE_REQUEST:
@@ -120,13 +138,12 @@ void pkt_proc::overview_init()
             case ICMP_TYPE_TIMEOUT:
                 ICMPType11_t *icmp11;
                 icmp11 = (ICMPType11_t *)(icmp_p->data);
-                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Time Exceeded "+
-                                                                             QString::number(icmp11->ICMPVoid)));
+                allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Time Exceeded "));
                 break;
             //其他类型
             default:
                 allinfo_model->setItem(icmp_p->Seq_num-1,6,new QStandardItem("Cant be resolved.This type of ICMP is not supported"));
-                break;
+                break; 
         }
         icmp_p = icmp_p->next;
     }
@@ -166,7 +183,7 @@ void pkt_proc::overview_init()
             DNSHeader_t *dns;
             dns = (DNSHeader_t *)(udp_p->data);
             allinfo_model->setItem(udp_p->Seq_num-1,4,new QStandardItem("DNS"));
-            allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem("DNS")); //++++++++++++
+            allinfo_model->setItem(udp_p->Seq_num-1,6,new QStandardItem("Standard query")); //++++++++++++
         }
         //判断是否是DHCP
         else if(DHCPJudgeFunc(udp_p->udphdr)){
@@ -215,7 +232,7 @@ void pkt_proc::initWidget()
     ui->contentTable->setShowGrid(false);//隐藏表格线
     for(int i=0; i<16; i++)
         ui->contentTable->setColumnWidth(i,34);
-    ui->contentTable->setColumnWidth(16,200);
+    ui->contentTable->setColumnWidth(16,240);
 
     //显示统计表初始(表4)
     ui->statistics_browser->clear();
@@ -495,18 +512,82 @@ void pkt_proc::on_overviewTable_clicked(const QModelIndex &index)
                             ui->headerTable->insertPlainText("\n        ◇ 类型：响应-应答包（0）");
                             ui->headerTable->insertPlainText("\n        ◇ 代码："+QString::number(icmp->ICMPCode));
                             ui->headerTable->insertPlainText("\n        ◇ 校验和：0x"+ushortToHexQStr(ntohs(icmp->Checksum)));
-                            ui->headerTable->insertPlainText("\n        ◇ id：0x"+ushortToHexQStr(ntohs(icmp0->ICMPID)));
-                            ui->headerTable->insertPlainText("\n        ◇ seq："+ushortToHexQStr(ntohs(icmp0->ICMPSeq)));
+                            ui->headerTable->insertPlainText("\n        ◇ 标识符：0x"+ushortToHexQStr(ntohs(icmp0->ICMPID)));
+                            ui->headerTable->insertPlainText("\n        ◇ 序列号："+ushortToHexQStr(ntohs(icmp0->ICMPSeq)));
+
                             break;
                         //不能到达目的地(3)
                         case ICMP_TYPE_UNREACH:
                             ICMPType3_t *icmp3;
                             icmp3 = (ICMPType3_t *)(pkt_char+icmpoff);
-                            ui->headerTable->insertPlainText("\n        ◇ 类型：目的地不可达（3）");
+                            switch(icmp->ICMPCode){
+                                //网络不可达
+                                case 0:
+                                    ui->headerTable->insertPlainText("\n        ◇ 类型：网络不可达（3）");
+                                    break;
+                                //主机不可达
+                                case 1:
+                                    ui->headerTable->insertPlainText("\n        ◇ 类型：主机不可达（3）");
+                                    break;
+                                //协议不可达
+                                case 2:
+                                    ui->headerTable->insertPlainText("\n        ◇ 类型：协议不可达（3）");
+                                    break;
+                                //端口不可达
+                                case 3:
+                                    ui->headerTable->insertPlainText("\n        ◇ 类型：端口不可达（3）");
+                                    break;
+                                default:
+                                    ui->headerTable->insertPlainText("\n        ◇ 类型：暂未解析（3）");
+                                    break;
+                            }
                             ui->headerTable->insertPlainText("\n        ◇ 代码："+QString::number(icmp->ICMPCode));
                             ui->headerTable->insertPlainText("\n        ◇ 校验和：0x"+ushortToHexQStr(ntohs(icmp->Checksum)));
-                            ui->headerTable->insertPlainText("\n        ◇ ICMPPmvoid："+ushortToHexQStr(ntohs(icmp3->ICMPPmvoid)));
-                            ui->headerTable->insertPlainText("\n        ◇ ICMPNextmtu："+ushortToHexQStr(ntohs(icmp3->ICMPNextmtu)));
+                            ui->headerTable->insertPlainText("\n        ◇ 未使用字段："+ushortToHexQStr(ntohs(icmp3->ICMPPmvoid)));
+                            ui->headerTable->insertPlainText("\n        ◇ 下一个MTU："+ushortToHexQStr(ntohs(icmp3->ICMPNextmtu)));
+                            ui->headerTable->insertPlainText("\n        ❖ IP数据报头：");
+                            ui->headerTable->insertPlainText("\n             ◇ 版本信息：IPv");
+                            ui->headerTable->insertPlainText(QString::number(icmp3->IPH.Ver_Hlen/16));
+                            ui->headerTable->insertPlainText("\n             ◇ 头长度：");
+                            ui->headerTable->insertPlainText(QString::number((icmp3->IPH.Ver_Hlen%16)*4)+"字节");
+                            ui->headerTable->insertPlainText("\n             ◇ 服务类型：");
+                            ui->headerTable->insertPlainText("0x"+ucharToHexQStr(icmp3->IPH.TOS));
+                            ui->headerTable->insertPlainText("\n             ◇ 数据报长度：");
+                            ui->headerTable->insertPlainText(QString::number(ntohs(icmp3->IPH.TotalLen)));
+                            ui->headerTable->insertPlainText("\n             ◇ 数据包标识：");
+                            ui->headerTable->insertPlainText("0x"+ushortToHexQStr(ntohs(icmp3->IPH.ID)));
+                            ui->headerTable->insertPlainText("\n             ◇ 分片信息：");
+                            ui->headerTable->insertPlainText("0x"+ushortToHexQStr(ntohs(icmp3->IPH.Flag_Segment)));
+                            ui->headerTable->insertPlainText("\n             ◇ 存活时间：");
+                            ui->headerTable->insertPlainText(QString::number(icmp3->IPH.TTL));
+                            ui->headerTable->insertPlainText("\n             ◇ 首部校验和：");
+                            ui->headerTable->insertPlainText("0x"+ushortToHexQStr(ntohs(icmp3->IPH.Checksum)));
+                            ui->headerTable->insertPlainText("\n             ◇ 源IP地址：");
+                            ui->headerTable->insertPlainText(uintToIPQstr(icmp3->IPH.SrcIP));
+                            ui->headerTable->insertPlainText("\n             ◇ 目的IP地址：");
+                            ui->headerTable->insertPlainText(uintToIPQstr(icmp3->IPH.DstIP));
+                            switch (icmp3->IPH.Protocol) {
+                                case IPT_TCP:
+                                    TCPHeader_t *tcph;
+                                    tcph = (TCPHeader_t *)(icmp3->IPData);
+                                    ui->headerTable->insertPlainText("\n        ❖ TCP报文段头");
+                                    ui->headerTable->insertPlainText("\n        ◇ 源端口号：");
+                                    ui->headerTable->insertPlainText(QString::number(ntohs(tcph->SrcPort)));
+                                    ui->headerTable->insertPlainText("\n        ◇ 目标端口号：");
+                                    ui->headerTable->insertPlainText(QString::number(ntohs(tcph->DstPort)));
+                                    break;
+                                case IPT_UDP:
+                                    UDPHeader_t *udph;
+                                    udph = (UDPHeader_t *)(icmp3->IPData);
+                                    ui->headerTable->insertPlainText("\n        ❖ UDP报文段头");
+                                    ui->headerTable->insertPlainText("\n        ◇ 源端口号：");
+                                    ui->headerTable->insertPlainText(QString::number(ntohs(udph->SrcPort)));
+                                    ui->headerTable->insertPlainText("\n        ◇ 目标端口号：");
+                                    ui->headerTable->insertPlainText(QString::number(ntohs(udph->DstPort)));
+                                    break;
+                                default:
+                                    break;
+                            }
                             break;
                         //能到达目的地，响应-请求包(8)
                         case ICMP_TYPE_REQUEST:

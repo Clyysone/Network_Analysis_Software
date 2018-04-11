@@ -30,7 +30,7 @@
 #define IP_HLEN 20  //IP头长度
 #define TCP_HLEN 20 //TCP头长度
 #define UDP_HLEN 8  //UDP头长度
-#define ICMP_HLEN 8 //ICMP头长度
+#define ICMP_HLEN 4 //ICMP头固定部分
 #define ARP_HLEN 8  //  ARP头长度
 #define DNS_HLEN 12 //DNS固定头部长度
 #define DHCP_HLEN 236 //DHCP固定头部长度
@@ -135,29 +135,33 @@ typedef struct ICMPHeader{
 
 //ICMP报文(应答包)
 typedef struct ICMPType0{
-    uint16_t ICMPID;
-    uint16_t ICMPSeq;
-    char8_t ICMPData[1];
+    uint16_t ICMPID; //2字节
+    uint16_t ICMPSeq; //2字节
+    uchar8_t ICMPData[];
 }ICMPType0_t;
 
 //ICMP报文(目的地不可达)
 typedef struct ICMPType3{
-    uint16_t ICMPPmvoid;
-    uint16_t ICMPNextmtu;
-    char8_t ICMPData[1];
+    uint16_t ICMPPmvoid; //2字节
+    uint16_t ICMPNextmtu; //2字节
+    IPHeader_t IPH;
+    uchar8_t IPData[8];
+    uchar8_t AddData[];
 }ICMPType3_t;
 
 //ICMP报文(请求包)
 typedef struct ICMPType8{
-    uint16_t ICMPID;
-    uint16_t ICMPSeq;
-    char8_t ICMPData[1];
+    uint16_t ICMPID; //2字节
+    uint16_t ICMPSeq; //2字节
+    uchar8_t ICMPData[];
 }ICMPType8_t;
 
 //ICMP报文(超时)
 typedef struct ICMPType11{
-    uint32_t ICMPVoid;
-    char8_t ICMPData[1];
+    uint32_t ICMPVoid; //4字节
+    IPHeader_t IPH;
+    uchar8_t IPData[8];
+    uchar8_t AddData[];
 }ICMPType11_t;
 
 //ARP头
