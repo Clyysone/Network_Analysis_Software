@@ -27,8 +27,8 @@
 #define ICMP_TYPE_TIMEOUT 11
 
 #define ETH_HLEN 14 //以太网头长度
-#define IP_HLEN 20  //IP头长度
-#define TCP_HLEN 20 //TCP头长度
+#define IP_HLEN 20  //一般IP头长度
+#define TCP_HLEN 20 //一般TCP头长度
 #define UDP_HLEN 8  //UDP头长度
 #define ICMP_HLEN 4 //ICMP头固定部分
 #define ARP_HLEN 8  //  ARP头长度
@@ -115,7 +115,7 @@ typedef struct TCPHeader{
 typedef struct TCPOptions{
     char8_t m_ckind;
     char8_t m_cLength;
-    char8_t m_cContext[32];
+    char8_t m_cContext[];
 }TCPOption_t;
 
 //UDP报文段头(8字节）
@@ -181,6 +181,7 @@ typedef struct DNSHeader{
     uint16_t Rsc_num; //资源记录数，查询报文中以下三个都为0
     uint16_t Aut_num; //授权资料记录数
     uint16_t Adt_num; //额外资源记录数
+    uchar8_t data[];
 }DNSHeader_t;
 
 //DHCP报文头部(长度固定部分)
@@ -262,6 +263,7 @@ void data_HexstrTochar(char *source , int length , char *dest_str);
 void _4No_pro(int num , char *no_now);
 QString ucharToHexQStr(uchar8_t ch);
 QString ushortToHexQStr(uint16_t ch);
+QString uintToHexQStr(uint32_t ch);
 QString uintToIPQstr(uint32_t ip);
 QString ucharToMACQstr(uchar8_t *ether);
 void PcapHdrCopy(const struct pcap_pkthdr *src_pcappkt, pcapPktHeader_t *dst_pcappkt);
@@ -275,5 +277,6 @@ void DataChToCh(const uchar8_t *src_ch,uchar8_t *dst_ch,uint32_t len); //字符�
 bool FindHttpStr(QString str);
 bool DNSJudgeFunc(UDPHeader_t udp_hdr);
 bool DHCPJudgeFunc(UDPHeader_t udp_hdr);
-
+QString DNSNameParse(uchar8_t *ch);
+bool HTTPEndJudge(uchar8_t *ch);
 #endif // BASE_TYPE_H
